@@ -12,7 +12,7 @@ use crate::configuration::Config;
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    info!("Launching backend application ...");
+    info!("Launching backend application...");
     let conf = match Config::load(){
         Ok(c) => c,
         Err(err) => {
