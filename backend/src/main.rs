@@ -6,7 +6,7 @@ use env_logger::Env;
 use tower_http::cors::{CorsLayer, Any};
 use log::{error, info};
 
-use crate::configuration::Config;
+use crate::{configuration::Config, db::database};
 
 #[tokio::main]
 async fn main() {
@@ -29,13 +29,21 @@ async fn main() {
     );
         
     // let addr = "0.0.0.0:3000";
-    let addr = format!("{}:{}",server.ip,server.port);
-    info!("🚀 Backend running on http://{}", addr);
-
-    axum::serve(
-        tokio::net::TcpListener::bind(addr).await.unwrap(),
-        app
-    )
-    .await
-    .unwrap();
+    let handle = tokio::spawn(async move{
+        let addr = format!("{}:{}",server.ip,server.port);
+        info!("🚀 Backend running on http://{}", addr);
+    
+        axum::serve(
+            tokio::net::TcpListener::bind(addr).await.unwrap(),
+            app
+        )
+        .await
+        .unwrap();
+    });
+    let mut db = database::Database::new();
+    db.init().await;
+    if let Err(err) = db.create_tables().await{
+        error!("{}",err);
+    };
+    let _ = handle.await;
 }
