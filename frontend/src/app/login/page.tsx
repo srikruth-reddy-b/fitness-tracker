@@ -1,53 +1,125 @@
-import React from 'react'
+"use client";
+import { EyeIcon, EyeSlashIcon,ArrowLeftIcon} from "@heroicons/react/24/outline";
+import Link from "next/link";
+import React, { useState } from "react";
+import { AuthCard } from '../components/AuthCard'
+import { AuthInput } from '../components/AuthInput'
+import { AuthButton } from '../components/AuthButton'
 
 export default function LoginPage() {
+  const [step, setStep] = useState(1);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleContinue = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (username.trim()) {
+      /* API CALL*/
+      setStep(2);
+    } else {
+      alert("Please enter username");
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (password.trim()) {
+      console.log("Logging in with:", { username, password });
+      /* API CALL */
+    } else {
+      alert("Please enter password");
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md rounded-2xl bg-white/10 p-8 shadow-xl backdrop-blur-md dark:bg-black/30">
-        <h2 className="mb-6 text-center text-2xl font-bold text-foreground">
-          Welcome Back
-        </h2>
-
-        <form className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground">
-              Email
-            </label>
-            <input
-              type="email"
-              className="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 text-foreground outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground">
-              Password
-            </label>
-            <input
-              type="password"
-              className="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 text-foreground outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
+    
+      <AuthCard>
+        {step === 2 && (
           <button
-            type="submit"
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-lg transition hover:bg-indigo-700"
+            type="button"
+            onClick={() => setStep(1)}
+            className="mb-4 text-sm font-medium text-indigo-600 hover:underline"
           >
-            Sign In
+          <ArrowLeftIcon className="h-5 w-6" />
           </button>
-        </form>
+        )}
 
-        <p className="mt-6 text-center text-sm text-foreground/70">
-          Don’t have an account?{" "}
-          <a href="#" className="font-medium text-indigo-500 hover:underline">
-            Sign up
-          </a>
-        </p>
-      </div>
-    </div>
+        <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">
+          Log in to fitness
+        </h1>
+
+        {step === 1 ? (
+          <form onSubmit={handleContinue} className="space-y-4">
+            <div>
+              <label className="block text-m font-medium text-gray-800">
+                Username
+              </label>
+              <AuthInput
+                type="text"
+                value={username}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setUsername(e.target.value)
+                }
+                placeholder="Enter username"
+                required
+              />
+            </div>
+            <AuthButton type="submit">Continue</AuthButton>
+
+            <p className="mt-3 text-center text-sm text-gray-700">
+              Don’t have an account?{" "}
+              
+              <Link
+                href="/register"
+                className="font-medium text-indigo-500 hover:underline"
+              >
+                Sign up
+              </Link>
+            </p>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="relative">
+              <label className="block text-m font-medium text-gray-800">
+                Password
+              </label>
+              <AuthInput
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPassword(e.target.value)
+                }
+                placeholder="Enter password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-[10%]"
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-black " />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-black " />
+                )}
+                {/* {showPassword ? "🙈" : "👁️"} */}
+              </button>
+            </div>
+
+            <p className="text-right text-sm">
+              <Link
+                href="/reset-pwd"
+                className="font-medium text-indigo-500 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </p>
+
+            <AuthButton type="submit">Sign In</AuthButton>
+          </form>
+        )}
+      </AuthCard>
+
   );
 }
