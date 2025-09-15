@@ -1,17 +1,20 @@
+use std::sync::Arc;
+use anyhow::Result;
 use deadpool_postgres::Pool;
 use log::{debug, error};
+use tokio_postgres::{types::ToSql, Row};
+
+use crate::db::database::Database;
 // use crate::db::database::Database;
 
-pub struct UserDB{
-    pool: Pool,
-    schema: String
+pub struct UserDB {
+    database: Database,
+    schema: String,
 }
-impl UserDB{
-    pub fn new(pool: Pool,schema: String)-> Self{
-        UserDB{
-            pool,
-            schema
-        }
+
+impl<'a> UserDB {
+    pub fn new(database: Database,schema: String) -> Self {
+        UserDB { database ,schema}
     }
 
     pub async fn create_table(&self){
@@ -24,16 +27,26 @@ impl UserDB{
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );",self.schema);
 
-        let client = match self.pool.get().await{
-            Ok(c) => c,
-            Err(e) => {
-                error!("Error getting client from pool:{}",e);
-                return;
-            }
-        };
-        match client.execute(&statement, &[]).await{
-            Ok(_) => debug!("User table created or already exists"),
+        let params = &[];
+        match self.database.execute(statement, params).await{
+            Ok(_) => debug!("User table created successfully"),
             Err(e) => error!("Error creating user table: {}",e),
-        }
+        }       
     }
+
+    pub async fn search_username(&self, username: String) -> Result<Row,>{
+        let statement = format!("SELECT 1 FROM {}.users WHERE username = $1 LIMIT 1;", self.schema);
+        let params: &[&(dyn ToSql + Sync)] = &[&username];
+        let option_username = match self.database.query_opt(statement, params).await{
+            Ok(c) => c,
+            Err(e) => return Err(anyhow::anyhow!("Error searching username: {}",e)),
+        };
+        match option_username{
+            Some(u) => {
+                return Ok(u)
+            },
+            None => return Err(anyhow::anyhow!("Username not found")),
+        } 
+    }
+    
 }

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { AuthCard } from '../components/AuthCard'
 import { AuthInput } from '../components/AuthInput'
 import { AuthButton } from '../components/AuthButton'
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 
 const ResetPage = () => {
@@ -22,6 +22,13 @@ const ResetPage = () => {
   return (
     <AuthCard>
         <form onSubmit={handleLogin}>
+            <button
+            type="button"
+            onClick={() => router.push("/login")}
+            className="mb-4 text-sm font-medium text-indigo-600 hover:underline"
+          >
+          <ArrowLeftIcon className="h-5 w-6" />
+          </button>
             <h1 className='mb-6 text-center text-2xl font-bold text-gray-900'>
                 Reset Password
             </h1>

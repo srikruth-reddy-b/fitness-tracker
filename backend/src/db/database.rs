@@ -1,13 +1,13 @@
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use log::error;
-use tokio_postgres::NoTls;
+use tokio_postgres::{NoTls, Row};
 use crate::{configuration::Config, db::user::UserDB};
 use anyhow::Result;
 
+#[derive(Clone)]
 pub struct Database{
     pool : Option<Pool>,
     schema : String,
-    userdb: Option<UserDB>,
 }
 
 impl Database{
@@ -15,21 +15,20 @@ impl Database{
         Database { 
             pool: None,
             schema : String::new(),
-            userdb: None,
         }
     }
-    pub async fn init(&mut self) {
+    pub async fn init(&mut self) -> String{
         let mut pg_config = tokio_postgres::Config::new();
         let conf = match Config::load(){
             Ok(c) => c,
             Err(err) => {
                 error!("{}",err);
-                return;
+                return "".to_string();
             }
         };
         let database = conf.get_db_properties();
         let schema = database.schema;
-        self.schema = schema;
+        self.schema = schema.clone();
 
         pg_config.host(database.host);
         pg_config.user(database.username);
@@ -44,7 +43,8 @@ impl Database{
         
         let pool = Pool::builder(mgr).max_size(5).build().unwrap();
         self.pool = Some(pool);
-        self.init_instances().await;
+        schema
+        // self.init_instances().await;
     }
 
     pub async fn init_instances(&mut self) {
@@ -56,8 +56,6 @@ impl Database{
                 // return Err(anyhow::anyhow!(e)); 
             }
         };
-        let userdb = UserDB::new(pool.clone(),self.schema.clone());
-        self.userdb = Some(userdb);
     }
     pub async fn get_pool(&self) -> Result<Pool,>{
         let pool = match &self.pool{
@@ -87,8 +85,70 @@ impl Database{
         // if self.userdb.is_none(){
         //     return
         // }
-        self.userdb.as_ref().unwrap().create_table().await;
         Ok(())
     }
+
+    pub async fn execute(&self, statement: String, params: &[&(dyn tokio_postgres::types::ToSql + Sync)]) -> Result<u64,>{
+        let pool = match &self.pool{
+            Some(p) => p,
+            None => {
+                return Err(anyhow::anyhow!("Database not initalised"));
+            }
+        };
+        let client = match pool.get().await{
+            Ok(c) => c,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Pool is closed: {}", e));
+            }
+        };
+        match client.execute(&statement, params).await{
+            Ok(r ) => return Ok(r),
+            Err(err) => {
+                return Err(anyhow::anyhow!("Failed to execute statement: {}",err))
+            }
+        }
+    }
+
+    pub async fn query(&self, statement: String, params: &[&(dyn tokio_postgres::types::ToSql + Sync)]) -> Result<Vec<Row>,>{
+        let pool = match &self.pool{
+            Some(p) => p,
+            None => {
+                return Err(anyhow::anyhow!("Database not initalised"));
+            }
+        };
+        let client = match pool.get().await{
+            Ok(c) => c,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Pool is closed: {}", e));
+            }
+        };
+         match client.query(&statement, params).await{
+            Ok(rows ) => return Ok(rows),
+            Err(err) => {
+                return Err(anyhow::anyhow!("Failed to execute statement: {}",err))
+            }
+        }
+    }
+
+    pub async fn query_opt(&self, statement: String, params: &[&(dyn tokio_postgres::types::ToSql + Sync)]) -> Result<Option<Row>,>{
+        let pool = match &self.pool{
+            Some(p) => p,
+            None => {
+                return Err(anyhow::anyhow!("Database not initalised"));
+            }
+        };
+        let client = match pool.get().await{
+            Ok(c) => c,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Pool is closed: {}", e));
+            }
+        };
+         match client.query_opt(&statement, params).await{
+            Ok(row ) => return Ok(row),
+            Err(err) => {
+                return Err(anyhow::anyhow!("Failed to execute statement: {}",err))
+            }
+        }
+    } 
     
 }

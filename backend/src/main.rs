@@ -6,7 +6,7 @@ use env_logger::Env;
 use tower_http::cors::{CorsLayer, Any};
 use log::{error, info};
 
-use crate::{configuration::Config, db::database};
+use crate::{configuration::Config, db::{database, DBOrch}};
 
 #[tokio::main]
 async fn main() {
@@ -40,10 +40,8 @@ async fn main() {
         .await
         .unwrap();
     });
-    let mut db = database::Database::new();
+    let mut db = DBOrch::new();
     db.init().await;
-    if let Err(err) = db.create_tables().await{
-        error!("{}",err);
-    };
+    
     let _ = handle.await;
 }
