@@ -23,6 +23,7 @@ impl UserDB{
             password VARCHAR(255) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );",self.schema);
+
         let client = match self.pool.get().await{
             Ok(c) => c,
             Err(e) => {
