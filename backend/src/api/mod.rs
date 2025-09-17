@@ -1,11 +1,10 @@
-pub mod login;
-pub mod register;
+pub mod login_page;
 use std::sync::Arc;
 
 use axum::{Router, routing::post};
 use log::error;
 
-use crate::{api::register::Register, services::auth_service::AuthService};
+use crate::{api::login_page::Login, services::auth_service::AuthService};
 
 // pub fn init() -> Router{
 //     Router::new().nest("/api", routes())
@@ -19,7 +18,7 @@ use crate::{api::register::Register, services::auth_service::AuthService};
 
 pub struct API{
     auth_service: Arc<AuthService>,
-    register_api : Option<Register>
+    register_api : Option<Login>
 }
 impl API{
     pub fn new(service: Arc<AuthService>) -> Self{
@@ -29,7 +28,7 @@ impl API{
         }
     }
     pub async fn init(&mut self)-> Router{
-        let register_api = Register::new(self.auth_service.clone());
+        let register_api = Login::new(self.auth_service.clone());
         self.register_api = Some(register_api);
         if self.register_api.is_none(){
             error!("Register API could not be initialised");
@@ -39,8 +38,9 @@ impl API{
     pub fn routes(&self) -> Router{
         // let register = self.register_api.unwrap();
         Router::new()
-            .route("/login", post(login::login_handler))
-            .route("/register", post(Register::register_handler))
+            .route("/login", post(Login::login_handler))
+            .with_state(self.auth_service.clone())
+            .route("/register", post(Login::register_handler))
             .with_state(self.auth_service.clone())
     }
 

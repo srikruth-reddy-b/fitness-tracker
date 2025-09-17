@@ -5,7 +5,11 @@ import React, { useState } from "react";
 import { AuthCard } from '../components/AuthCard'
 import { AuthInput } from '../components/AuthInput'
 import { AuthButton } from '../components/AuthButton'
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Popup from "../components/Popup";
+
 
 const RegisterPage = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -14,14 +18,53 @@ const RegisterPage = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmpassword, setConfirmPassword] = useState("");
+    const [popupMessage, setPopupMessage] = useState("");
+    const [showPopup, setShowPopup] = useState(false);
+    const router = useRouter();
 
-    const handleRegister = (e:React.FormEvent<HTMLFormElement>) => {
+    const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        //API CALL
-        console.log(username,password,confirmpassword,email,fullname)
-    }
+        try {
+            const response = await fetch("http://127.0.0.1:3001/api/register", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                fullname,
+                username,
+                email,
+                password,
+                confirmpassword,
+            }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Registration failed");
+            }
+
+            const data = await response.json();
+            if (data.success){
+                console.log("✅ Success:", data.message);
+                router.push("/login") 
+            }
+            else{
+                console.warn("⚠️ Failed:", data.message); 
+                setPopupMessage(data.message);
+                setShowPopup(true);
+            }
+
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    };
+
     return (
         <AuthCard>
+        <Popup
+            message={popupMessage} 
+            onClose={() => setPopupMessage("")}
+        />
         <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">Sign up for fitness</h1>
         <form onSubmit={handleRegister} className="space-y-4">
             <AuthInput type="text" placeholder="Enter Full Name" 

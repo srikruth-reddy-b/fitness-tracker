@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use anyhow::Result;
 use deadpool_postgres::Pool;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use password_hash::PasswordHasher;
 use password_hash::{SaltString, rand_core::OsRng};
 use tokio_postgres::{types::ToSql, Row};
@@ -22,7 +22,7 @@ impl<'a> UserDB {
         UserDB { database ,schema}
     }
 
-    pub async fn create_table(&self){
+    pub async fn init(&self){
         let statement = format!("CREATE TABLE IF NOT EXISTS {}.users (
             id SERIAL ,
             username VARCHAR(50) PRIMARY KEY,
@@ -81,26 +81,28 @@ impl<'a> UserDB {
         }    
     }
     
-    pub async fn verify_password(&self, username:String, password: String) -> bool{
+    pub async fn verify_password(&self, username:String, password: String) -> Result<bool,>{
         let pass = match self.get_password_by_username(username.clone()).await{
             Ok(Some(p)) => p,
             Ok(None) => {
                 warn!("No password found for username, {}",username);
-                return false;
+                return Ok(false);
             }
             Err(err) => {
-                error!("Error getting password by username: {}",err);
-                return false;
+                return Err(anyhow::anyhow!("Error getting password by username: {}",err));
             }
         };
         let parsed_hash = match PasswordHash::new(&pass) {
             Ok(h) => h,
-            Err(_) => return false,
+            Err(err) => return Err(anyhow::anyhow!("{}",err)),
         };
 
-        ARGON
-            .verify_password(password.as_bytes(), &parsed_hash)
-            .is_ok()
+        // match  ARGON.verify_password(password.as_bytes(), &parsed_hash){
+        //     Ok(_) => Ok(true),
+        //     Err(err) => return Err(anyhow::anyhow!("{}",err))
+        // }
+        let status = ARGON.verify_password(password.as_bytes(), &parsed_hash).is_ok();
+        Ok(status)
     }
 
     pub async fn get_password_by_username(&self, username:String) -> Result<Option<String>,>{
@@ -116,6 +118,34 @@ impl<'a> UserDB {
             Ok(None) => Ok(None),
             Err(err) =>{
                 return Err(anyhow::anyhow!("{}",err))
+            }
+        }
+    }
+
+    pub async fn update_password(&self, username: String, password: String) -> Result<bool,>{
+        let salt = SaltString::generate(&mut OsRng);
+        let hashed = match ARGON.hash_password(password.as_bytes(), &salt){
+            Ok(h) => h,
+            Err(e) => return Err(anyhow::anyhow!("Error hashing password: {}",e)),
+        }.to_string();
+
+        let statement = format!(
+            "UPDATE {}.users SET password = $1 WHERE username = $2",
+            self.schema
+        );
+
+        let params: &[&(dyn ToSql + Sync)] = &[&hashed, &username];
+        match self.database.execute(statement, params).await {
+            Ok(rows_updated) if rows_updated > 0 => {
+                info!("Password updated for user {}", username);
+                return Ok(true)
+            }
+            Ok(_) => {
+                warn!("No user found with username {}", username);
+                return Ok(false)
+            }
+            Err(err) => {
+               return  Err(anyhow::anyhow!("Error updating password: {}", err))
             }
         }
     }

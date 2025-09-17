@@ -9,11 +9,16 @@ pub mod user;
 pub struct Database{
     pub database: Option<Arc<DBOperations>>,
     user: Option<UserDB>,
+    schema: String,
 }
 
 impl Database{
-    pub fn new() -> Self{
-        Database { database: None, user: None }
+    pub fn new(schema: String) -> Self{
+        Database { 
+            database: None, 
+            user: None,
+            schema 
+        }
     }
 
     pub async fn init(&mut self) -> Result<(),>{
@@ -32,7 +37,8 @@ impl Database{
             return Err(anyhow::anyhow!("Database not initialized"));
         }
         let db = self.database.as_ref().unwrap().clone();
-        let userdb = UserDB::new(db,"sd".to_string());
+        let userdb = UserDB::new(db,self.schema.clone());
+        userdb.init().await;
         self.user = Some(userdb);
         Ok(())
     }

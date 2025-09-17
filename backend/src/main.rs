@@ -25,8 +25,9 @@ async fn main() {
     let server = conf.get_server_properties();
     let db = conf.get_db_properties();
     let schema = db.schema;
-    let mut db = Database::new();
+    let mut db = Database::new(schema.clone());
     let _ = db.init().await;
+    let _ = db.init_instances().await;
     let db_ops = db.database.unwrap();
     let mut service_ins = Service::new(db_ops, schema);
     let _ = service_ins.init().await;

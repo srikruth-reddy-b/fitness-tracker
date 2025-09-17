@@ -5,12 +5,16 @@ import React, { useState } from "react";
 import { AuthCard } from '../components/AuthCard'
 import { AuthInput } from '../components/AuthInput'
 import { AuthButton } from '../components/AuthButton'
+import Popup from "../components/Popup";
 
 export default function LoginPage() {
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
+  
 
   const handleContinue = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -22,11 +26,41 @@ export default function LoginPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (password.trim()) {
       console.log("Logging in with:", { username, password });
-      /* API CALL */
+      try {
+            const response = await fetch("http://127.0.0.1:3001/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                username,
+                password,
+            }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Registration failed");
+            }
+
+            const data = await response.json();
+            if (data.success){
+                console.log("✅ Success:", data.message);
+            }
+            else{
+                console.warn("⚠️ Failed:", data.message); 
+                setPopupMessage(data.message);
+                setShowPopup(true);
+                
+                setStep(1);
+            }
+
+        } catch (error) {
+            console.error("Error:", error);
+        }
     } else {
       alert("Please enter password");
     }
@@ -35,6 +69,10 @@ export default function LoginPage() {
   return (
     
       <AuthCard>
+        <Popup
+            message={popupMessage} 
+            onClose={() => setPopupMessage("")}
+        />
         {step === 2 && (
           <button
             type="button"

@@ -1,7 +1,6 @@
 use std::sync::Arc;
-use log::error;
 use anyhow::Result;
-use crate::{configuration::Database, db::{database::DBOperations, user::UserDB}, services::auth_service::AuthService};
+use crate::{db::{database::DBOperations, user::UserDB}, services::auth_service::AuthService};
 pub mod auth_service;
 
 pub struct Service{

@@ -1,13 +1,20 @@
 use std::sync::Arc;
 use axum::{extract::State, response::IntoResponse, Json};
 use serde::Deserialize;
-use crate::{db::{model::User, user::UserDB}, services::auth_service::{self, AuthService}};
+use crate::{ services::auth_service::{AuthService}};
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
     pub fullname: String,
     pub username: String,
     pub email: String,
+    pub password: String,
+    pub confirmpassword: String,
+}
+
+#[derive(Deserialize)]
+pub struct LoginRequest {
+    pub username: String,
     pub password: String,
 }
 
@@ -18,29 +25,27 @@ pub struct RegisterRequest {
 //    let result = auth_service::AuthService::register(payload).await;
 // }
 
-pub struct Register{
+pub struct Login{
     pub auth_service: Arc<AuthService>
 }
-impl Register{
+impl Login{
     pub fn new(auth_service: Arc<AuthService>) -> Self{
-        Register{
+        Login{
             auth_service
         }
     }
-    // pub async fn register_handler(&self, Json(payload): Json<User>) -> impl IntoResponse {
-    //     let _ = Json(serde_json::json!({
-    //         "message": format!("User {} registered successfully!", payload.username)
-    //     }));
-    //     let result = self.auth_service.register(payload).await;
-    // }
     pub async fn register_handler(
         State(auth_service): State<Arc<AuthService>>, 
-        Json(payload): Json<User>
+        Json(payload): Json<RegisterRequest>
     ) -> impl IntoResponse {
         let result = auth_service.register(payload).await;
-
-        Json(serde_json::json!({
-            "message": format!("User registered successfully!")
-        }))
+        Json(result)
+    }
+    pub async fn login_handler(
+        State(auth_service): State<Arc<AuthService>>, 
+        Json(payload): Json<LoginRequest>
+    ) -> impl IntoResponse {
+        let result = auth_service.login(payload).await;
+        Json(result)
     }
 }
