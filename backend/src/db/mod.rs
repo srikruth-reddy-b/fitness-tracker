@@ -1,23 +1,23 @@
 use std::sync::Arc;
-use crate::db::{database::Database, user::UserDB};
+use crate::db::{database::DBOperations, user::UserDB};
 use anyhow::Result;
 use log::error;
 pub mod database;
 pub mod model;
 pub mod user;
 
-pub struct DBOrch{
-    database: Option<Arc<Database>>,
+pub struct Database{
+    pub database: Option<Arc<DBOperations>>,
     user: Option<UserDB>,
 }
 
-impl DBOrch{
+impl Database{
     pub fn new() -> Self{
-        DBOrch { database: None, user: None }
+        Database { database: None, user: None }
     }
 
     pub async fn init(&mut self) -> Result<(),>{
-        let mut db = Database::new();
+        let mut db = DBOperations::new();
         db.init().await;
         if let Err(err) = db.create_tables().await{
             error!("{}",err);

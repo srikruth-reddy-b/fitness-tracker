@@ -7,18 +7,18 @@ use password_hash::{SaltString, rand_core::OsRng};
 use tokio_postgres::{types::ToSql, Row};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use once_cell::sync::Lazy;
-use crate::db::{database::Database, model::User};
+use crate::db::{database::DBOperations, model::User};
 
 pub static ARGON: Lazy<Argon2> = Lazy::new(|| Argon2::default());
 // use crate::db::database::Database;
 
 pub struct UserDB {
-    database: Arc<Database>,
+    database: Arc<DBOperations>,
     schema: String,
 }
 
 impl<'a> UserDB {
-    pub fn new(database: Arc<Database>,schema: String) -> Self {
+    pub fn new(database: Arc<DBOperations>,schema: String) -> Self {
         UserDB { database ,schema}
     }
 

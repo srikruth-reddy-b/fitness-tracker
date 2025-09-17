@@ -5,14 +5,14 @@ use crate::{configuration::Config, db::user::UserDB};
 use anyhow::Result;
 
 #[derive(Clone)]
-pub struct Database{
+pub struct DBOperations{
     pool : Option<Pool>,
     schema : String,
 }
 
-impl Database{
+impl DBOperations{
     pub fn new() -> Self{
-        Database { 
+        DBOperations { 
             pool: None,
             schema : String::new(),
         }

@@ -1,9 +1,35 @@
 use std::sync::Arc;
-
-use crate::configuration::Database;
-
+use log::error;
+use anyhow::Result;
+use crate::{configuration::Database, db::{database::DBOperations, user::UserDB}, services::auth_service::AuthService};
 pub mod auth_service;
 
 pub struct Service{
-    database: Arc<Database>,
+    pub auth_service: Option<AuthService>,
+    pub database: Arc<DBOperations>,
+    pub user: Option<Arc<UserDB>>,
+    pub schema: String,
+}
+
+impl Service{
+    pub fn new(db_ops: Arc<DBOperations>,schema: String)-> Self{
+        Service { 
+            auth_service: None,
+            database: db_ops, 
+            user: None,
+            schema,
+        }
+    }
+    pub async fn init(&mut self) -> Result<(),> {
+        let user_db = UserDB::new(self.database.clone(), self.schema.clone());
+        self.user = Some(Arc::new(user_db));
+
+        if self.user.is_none(){
+            return Err(anyhow::anyhow!("User instance could not be created"));
+        }
+        let user = self.user.as_ref().unwrap().clone();
+        let auth_service = AuthService::new(user);
+        self.auth_service = Some(auth_service);
+        Ok(())
+    }
 }
