@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::db::{database::Database, user::UserDB};
 use anyhow::Result;
 use log::error;
@@ -6,7 +7,7 @@ pub mod model;
 pub mod user;
 
 pub struct DBOrch{
-    database: Option<Database>,
+    database: Option<Arc<Database>>,
     user: Option<UserDB>,
 }
 
@@ -21,7 +22,7 @@ impl DBOrch{
         if let Err(err) = db.create_tables().await{
             error!("{}",err);
         };
-        self.database = Some(db);
+        self.database = Some(Arc::new(db));
         Ok(())
     }
 

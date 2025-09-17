@@ -13,12 +13,12 @@ pub static ARGON: Lazy<Argon2> = Lazy::new(|| Argon2::default());
 // use crate::db::database::Database;
 
 pub struct UserDB {
-    database: Database,
+    database: Arc<Database>,
     schema: String,
 }
 
 impl<'a> UserDB {
-    pub fn new(database: Database,schema: String) -> Self {
+    pub fn new(database: Arc<Database>,schema: String) -> Self {
         UserDB { database ,schema}
     }
 
