@@ -31,7 +31,7 @@ export default function LoginPage() {
     if (password.trim()) {
       console.log("Logging in with:", { username, password });
       try {
-            const response = await fetch("http://127.0.0.1:3001/api/login", {
+            const response = await fetch(process.env.API_URL + 'api/login', {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -47,15 +47,12 @@ export default function LoginPage() {
             }
 
             const data = await response.json();
-            if (data.success){
-                console.log("✅ Success:", data.message);
-            }
-            else{
-                console.warn("⚠️ Failed:", data.message); 
-                setPopupMessage(data.message);
-                setShowPopup(true);
-                
-                setStep(1);
+            console.log("Server message: ", data.message);
+            if (!data.success){
+              setPopupMessage(data.message);
+              setShowPopup(true);
+              
+              setStep(1);
             }
 
         } catch (error) {

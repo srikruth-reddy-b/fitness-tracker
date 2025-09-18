@@ -4,8 +4,10 @@ port = "3001"
 
 [database]
 username = "postgres"
-password = "ruth"
+password = "asense820" #mac
+#password = "ruth"  #win
 host = "localhost"
-port = 5432
+port = 5433  #mac
+#port = 5432 #win
 dbname = "fitness"
 schema = "fittrack"

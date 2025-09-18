@@ -25,7 +25,7 @@ const RegisterPage = () => {
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         try {
-            const response = await fetch("http://127.0.0.1:3001/api/register", {
+            const response = await fetch( process.env.API_URL + 'api/register', {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -44,12 +44,11 @@ const RegisterPage = () => {
             }
 
             const data = await response.json();
+            console.log("Server message: ", data.message);
             if (data.success){
-                console.log("✅ Success:", data.message);
                 router.push("/login") 
             }
             else{
-                console.warn("⚠️ Failed:", data.message); 
                 setPopupMessage(data.message);
                 setShowPopup(true);
             }

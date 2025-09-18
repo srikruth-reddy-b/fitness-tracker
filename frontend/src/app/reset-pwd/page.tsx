@@ -13,10 +13,38 @@ const ResetPage = () => {
     const [confirmpassword, setConfirmPassword] = useState("");
 
     const router = useRouter();
-    const handleLogin = (e:React.FormEvent<HTMLFormElement>) =>{
+    const handleLogin = async (e:React.FormEvent<HTMLFormElement>) =>{
         e.preventDefault();
         //API CALL
-       router.push("/login");
+        try{
+          const response = await fetch (process.env.API_URL + 'api/forgot-password',{
+            method : "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username,
+              password,
+              confirmpassword
+            })
+          });
+          if (!response.ok) {
+              throw new Error("Registration failed");
+          }
+
+          const data = await response.json();
+          if (data.success){
+            console.log("",data.message);
+            router.push("/login");
+          }
+          else{
+            
+          }
+
+        }
+        catch(error){
+          console.error("Error:", error);
+        }
     };
 
   return (
