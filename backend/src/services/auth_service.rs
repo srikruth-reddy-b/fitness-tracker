@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use log::info;
+use log::{error, info};
 use serde::Serialize;
-use crate::{api::{ login_page::{RegisterRequest,LoginRequest}}, db::{model::User, user::UserDB}};
+use crate::{api::login_page::{ForgotPasswordRequest, LoginRequest, RegisterRequest}, db::{model::User, user::UserDB}};
 
 #[derive(Serialize)]
 pub struct AuthResponse{
@@ -34,6 +34,7 @@ impl AuthService{
                 }
             }
             Err(err) =>{
+                error!("Error during login: {}",err);
                 return AuthResponse{
                     success: false,
                     message: format!("Error during authentication: {}",err),
@@ -88,12 +89,42 @@ impl AuthService{
                     message: "Username already exists".to_string(),
                 }
             },
-            Err(_err) => {
+            Err(err) => {
+                error!("Error during registration: {}",err);
                 return AuthResponse{
                     success: false,
-                    message: "Couldnot register user".to_string()
+                    message: "Couldn't register user".to_string()
                 }
             }
         }
+    }
+
+    pub async fn forgot_password(&self, forgot_password: ForgotPasswordRequest) -> AuthResponse{
+        let username = forgot_password.username;
+        let password = forgot_password.password;
+        let confirmpassword = forgot_password.confirmpassword;
+
+        if !password.eq(&confirmpassword){
+            return AuthResponse{
+                success: false,
+                message: "Passwords do not match".to_string(),
+            };
+        }
+        match self.user.update_password(username, password).await{
+            Ok(_) => {
+                AuthResponse{
+                    success: true,
+                    message: "Password updated".to_string()
+                }
+            }
+            Err(err) => {
+                error!("Error updating password: {}", err);
+                return AuthResponse{
+                    success: false,
+                    message: "Couldn't update password".to_string()
+                }
+            }
+        }
+        
     }
 }

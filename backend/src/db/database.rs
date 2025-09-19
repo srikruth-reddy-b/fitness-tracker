@@ -1,7 +1,7 @@
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use log::error;
 use tokio_postgres::{NoTls, Row};
-use crate::{configuration::Config, db::user::UserDB};
+use crate::{configuration::Config};
 use anyhow::Result;
 
 #[derive(Clone)]
@@ -47,16 +47,6 @@ impl DBOperations{
         // self.init_instances().await;
     }
 
-    pub async fn init_instances(&mut self) {
-        let pool = match self.get_pool().await{
-            Ok(p) => p,
-            Err(e) => {
-                error!("{}",e);
-                return;
-                // return Err(anyhow::anyhow!(e)); 
-            }
-        };
-    }
     pub async fn get_pool(&self) -> Result<Pool,>{
         let pool = match &self.pool{
             Some(p) => p,

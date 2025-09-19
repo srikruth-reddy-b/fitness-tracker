@@ -18,12 +18,12 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-// pub async fn register_handler(Json(payload): Json<User>) -> impl IntoResponse {
-//     Json(serde_json::json!({
-//         "message": format!("User {} registered successfully!", payload.username)
-//     }));
-//    let result = auth_service::AuthService::register(payload).await;
-// }
+#[derive(Deserialize)]
+pub struct ForgotPasswordRequest{
+    pub username: String,
+    pub password: String,
+    pub confirmpassword: String
+}
 
 pub struct Login{
     pub auth_service: Arc<AuthService>
@@ -34,18 +34,28 @@ impl Login{
             auth_service
         }
     }
+
     pub async fn register_handler(
         State(auth_service): State<Arc<AuthService>>, 
         Json(payload): Json<RegisterRequest>
-    ) -> impl IntoResponse {
+        ) -> impl IntoResponse {
         let result = auth_service.register(payload).await;
         Json(result)
     }
+
     pub async fn login_handler(
         State(auth_service): State<Arc<AuthService>>, 
         Json(payload): Json<LoginRequest>
-    ) -> impl IntoResponse {
+        ) -> impl IntoResponse {
         let result = auth_service.login(payload).await;
+        Json(result)
+    }
+
+    pub async fn forgot_password_handler(
+        State(auth_service): State<Arc<AuthService>>, 
+        Json(payload): Json<ForgotPasswordRequest>
+        ) -> impl IntoResponse {
+        let result = auth_service.forgot_password(payload).await;
         Json(result)
     }
 }

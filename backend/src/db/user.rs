@@ -1,10 +1,9 @@
 use std::sync::Arc;
 use anyhow::Result;
-use deadpool_postgres::Pool;
 use log::{debug, error, info, warn};
 use password_hash::PasswordHasher;
 use password_hash::{SaltString, rand_core::OsRng};
-use tokio_postgres::{types::ToSql, Row};
+use tokio_postgres::{types::ToSql};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use once_cell::sync::Lazy;
 use crate::db::{database::DBOperations, model::User};
@@ -122,7 +121,7 @@ impl<'a> UserDB {
         }
     }
 
-    pub async fn update_password(&self, username: String, password: String) -> Result<bool,>{
+    pub async fn update_password(&self, username: String, password: String) -> Result<(),>{
         let salt = SaltString::generate(&mut OsRng);
         let hashed = match ARGON.hash_password(password.as_bytes(), &salt){
             Ok(h) => h,
@@ -138,11 +137,10 @@ impl<'a> UserDB {
         match self.database.execute(statement, params).await {
             Ok(rows_updated) if rows_updated > 0 => {
                 info!("Password updated for user {}", username);
-                return Ok(true)
+                return Ok(())
             }
             Ok(_) => {
-                warn!("No user found with username {}", username);
-                return Ok(false)
+               return  Err(anyhow::anyhow!("Username not found"))
             }
             Err(err) => {
                return  Err(anyhow::anyhow!("Error updating password: {}", err))
