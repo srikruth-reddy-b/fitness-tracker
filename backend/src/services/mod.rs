@@ -1,10 +1,12 @@
+pub mod auth_service;
+pub mod jwt_service;
+
 use std::sync::Arc;
 use anyhow::Result;
 use crate::{db::{database::DBOperations, user::UserDB}, services::auth_service::AuthService};
-pub mod auth_service;
 
 pub struct Service{
-    pub auth_service: Option<AuthService>,
+    pub auth_service: Option<Arc<AuthService>>,
     pub database: Arc<DBOperations>,
     pub user: Option<Arc<UserDB>>,
     pub schema: String,
@@ -28,7 +30,7 @@ impl Service{
         }
         let user = self.user.as_ref().unwrap().clone();
         let auth_service = AuthService::new(user);
-        self.auth_service = Some(auth_service);
+        self.auth_service = Some(Arc::new(auth_service));
         Ok(())
     }
 }

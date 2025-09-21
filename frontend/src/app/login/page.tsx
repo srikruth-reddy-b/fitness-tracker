@@ -6,6 +6,7 @@ import { AuthCard } from '../components/AuthCard'
 import { AuthInput } from '../components/AuthInput'
 import { AuthButton } from '../components/AuthButton'
 import Popup from "../components/Popup";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [step, setStep] = useState(1);
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [showPopup, setShowPopup] = useState(false);
   
-
+  const router = useRouter();
   const handleContinue = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (username.trim()) {
@@ -28,40 +29,43 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (password.trim()) {
-      console.log("Logging in with:", { username, password });
-      try {
-            const response = await fetch(process.env.API_URL + 'api/login', {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                username,
-                password,
-            }),
-            });
 
-            if (!response.ok) {
-                throw new Error("Registration failed");
-            }
-
-            const data = await response.json();
-            console.log("Server message: ", data.message);
-            if (!data.success){
-              setPopupMessage(data.message);
-              setShowPopup(true);
-              
-              setStep(1);
-            }
-
-        } catch (error) {
-            console.error("Error:", error);
-        }
-    } else {
+    if (!password.trim()) {
       alert("Please enter password");
+      return;
+    }
+
+    console.log("Logging in with:", { username, password });
+
+    try {
+      const response = await fetch(`${process.env.API_URL}api/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      console.log(data);
+      if (!response.ok || !data.success) {
+        setPopupMessage(data.message || "Login failed");
+        setShowPopup(true);
+        setStep(1);
+        return;
+      }
+
+      console.log("Login successful, JWT stored in cookie!");
+
+      router.push("/protected");
+    } catch (error) {
+      console.error("Error:", error);
+      setPopupMessage("Something went wrong");
+      setShowPopup(true);
     }
   };
+
 
   return (
     
