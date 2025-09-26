@@ -1,3 +1,7 @@
+// #[macro_use]
+extern crate diesel;
+
+mod schema;
 mod api;
 mod services;
 mod db;
@@ -6,9 +10,9 @@ use std::sync::Arc;
 use env_logger::Env;
 use log::{error, info};
 
-use actix_web::{middleware::Logger, web, App, HttpServer};
+use actix_web::{middleware::Logger, App, HttpServer};
 use actix_cors::Cors;
-use crate::{api::API, configuration::Config, db::Database, services::{jwt_service::JwtService, Service}};
+use crate::{configuration::Config, db::Database, services::{jwt_service::JwtService, Service}};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -32,8 +36,6 @@ async fn main() -> std::io::Result<()> {
     let mut service_ins = Service::new(db_ops, schema);
     let _ = service_ins.init().await;
     let auth_service = service_ins.auth_service.unwrap();
-    let auth_service_clone = auth_service.clone();
-    // api_ins.init().await;
     
     let jwt_service = JwtService::new();
     let jwt_service_arc = Arc::new(jwt_service.clone());

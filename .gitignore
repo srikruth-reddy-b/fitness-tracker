@@ -2,3 +2,5 @@
 /frontend/.next
 /backend/target
 .DS_Store
+/backend/migrations/.diesel_lock
+/backend/migrations/.keep

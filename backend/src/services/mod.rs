@@ -22,7 +22,8 @@ impl Service{
         }
     }
     pub async fn init(&mut self) -> Result<(),> {
-        let user_db = UserDB::new(self.database.clone(), self.schema.clone());
+        let mut user_db = UserDB::new(self.database.clone(), self.schema.clone());
+        let _ = user_db.init().await;
         self.user = Some(Arc::new(user_db));
 
         if self.user.is_none(){

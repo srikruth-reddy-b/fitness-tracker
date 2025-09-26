@@ -1,13 +1,33 @@
-use serde::Deserialize;
-use serde::Serialize;
+use diesel::prelude::*;
+use serde::{Deserialize, Serialize};
+use crate::schema::fittrack::users;
+// #[derive(Debug,Serialize,Deserialize)]
+// pub struct User{
+//     // pub id: i32,
+//     pub fullname: String,
+//     pub username: String,
+//     pub email: String,
+//     pub password: String,
+// }
 
-#[derive(Debug,Serialize,Deserialize)]
-pub struct User{
-    // pub id: i32,
-    pub fullname: String,
+#[derive(Debug, Serialize, Deserialize, Queryable, Identifiable)]
+#[diesel(table_name = users)]
+pub struct User {
+    pub id: i32,
     pub username: String,
+    pub fullname: String,
     pub email: String,
     pub password: String,
+    pub created_at: Option<chrono::NaiveDateTime>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = users)]
+pub struct NewUser<'a> {
+    pub username: &'a str,
+    pub fullname: &'a str,
+    pub email: &'a str,
+    pub password: &'a str,
 }
 
 #[derive(Debug,Serialize,Deserialize)]

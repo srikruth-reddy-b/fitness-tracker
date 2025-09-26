@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use log::{error, info};
 use serde::Serialize;
-use crate::{api::login_page::{ForgotPasswordRequest, LoginRequest, RegisterRequest}, db::{model::User, user::UserDB}};
+use crate::{api::login_page::{ForgotPasswordRequest, LoginRequest, RegisterRequest}, db::{model::{NewUser, User}, user::UserDB}};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm, errors::Error as JwtError};
 // use crate::api::login_page::Claims;
 #[derive(Serialize)]
@@ -74,11 +74,11 @@ impl AuthService{
                 message: "Passwords do not match".to_string(),
             };
         }
-        let user = User{
-            fullname: request.fullname,
-            username: request.username.clone(),
-            email: request.email,
-            password: request.password,
+        let user = NewUser{
+            fullname: &request.fullname,
+            username: &request.username.clone(),
+            email: &request.email,
+            password: &request.password,
         };
         match self.user.add_user(user).await{
             Ok(true) => {

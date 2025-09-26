@@ -23,10 +23,12 @@ impl Database{
 
     pub async fn init(&mut self) -> Result<(),>{
         let mut db = DBOperations::new();
-        db.init().await;
-        if let Err(err) = db.create_tables().await{
-            error!("{}",err);
-        };
+        if let Err(err) = db.init().await{
+            error!("Error initialising database, {}",err)
+        }
+        // if let Err(err) = db.create_tables().await{
+        //     error!("{}",err);
+        // };
         self.database = Some(Arc::new(db));
         Ok(())
     }
@@ -37,8 +39,10 @@ impl Database{
             return Err(anyhow::anyhow!("Database not initialized"));
         }
         let db = self.database.as_ref().unwrap().clone();
-        let userdb = UserDB::new(db,self.schema.clone());
-        userdb.init().await;
+        let mut userdb = UserDB::new(db,self.schema.clone());
+        if let Err(err) = userdb.init().await{
+            error!("Error initialising user db: {}",err);
+        };
         self.user = Some(userdb);
         Ok(())
     }
