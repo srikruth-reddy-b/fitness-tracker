@@ -3,11 +3,11 @@ ip = "0.0.0.0"
 port = "3001"
 
 [database]
-username = "postgres"
+username = "Srikruth"
 password = "asense820" #mac
 #password = "ruth"  #win
 host = "localhost"
-port = 5433  #mac
+port = 5432  #mac
 #port = 5432 #win
 dbname = "fitness"
 schema = "fittrack"

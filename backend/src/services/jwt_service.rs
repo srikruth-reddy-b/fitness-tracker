@@ -4,7 +4,8 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,   
+    pub sub: String,
+    pub id: i32,
     pub exp: usize,   
     pub iat: usize,    
 }
@@ -19,16 +20,17 @@ impl JwtService {
     pub fn new() -> Self {
         JwtService {
             secret : "SECRET".to_string(),
-            expiration_minutes: 1,
+            expiration_minutes: 60, // Increased to 60 for better UX
         }
     }
 
-    pub fn generate_token(&self, subject: &str) -> JwtResult<String> {
+    pub fn generate_token(&self, subject: &str, id: i32) -> JwtResult<String> {
         let now = Utc::now();
         let exp = now + Duration::minutes(self.expiration_minutes);
 
         let claims = Claims {
             sub: subject.to_owned(),
+            id,
             iat: now.timestamp() as usize,
             exp: exp.timestamp() as usize,
         };

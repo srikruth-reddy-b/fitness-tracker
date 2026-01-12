@@ -2,10 +2,10 @@
 import { EyeIcon, EyeSlashIcon,ArrowLeftIcon} from "@heroicons/react/24/outline";
 import Link from "next/link";
 import React, { useState } from "react";
-import { AuthCard } from '../components/AuthCard'
-import { AuthInput } from '../components/AuthInput'
-import { AuthButton } from '../components/AuthButton'
-import Popup from "../components/Popup";
+import { AuthCard } from '../../components/AuthCard'
+import { AuthInput } from '../../components/AuthInput'
+import { AuthButton } from '../../components/AuthButton'
+import Popup from "../../components/Popup";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -58,7 +58,7 @@ export default function LoginPage() {
 
       console.log("Login successful, JWT stored in cookie!");
 
-      router.push("/protected");
+      router.push("/dashboard");
     } catch (error) {
       console.error("Error:", error);
       setPopupMessage("Something went wrong");

@@ -5,6 +5,7 @@ use log::error;
 pub mod database;
 pub mod model;
 pub mod user;
+pub mod workouts;
 
 pub struct Database{
     pub database: Option<Arc<DBOperations>>,

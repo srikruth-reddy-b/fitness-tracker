@@ -5,7 +5,7 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, Header, EncodingKey};
 use serde_json::json;
 use ::time::Duration as TimeDuration;
-use crate::services::{auth_service::{AuthResponse, AuthService}, jwt_service::JwtService};
+use crate::{api::middleware::AuthenticatedUser, db::model::UpdateUser, services::{auth_service::{AuthResponse, AuthService}, jwt_service::JwtService}};
 
 // #[derive(Debug, Serialize, Deserialize)]
 // pub struct Claims {
@@ -28,6 +28,9 @@ pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub confirmpassword: String,
+    pub weight: f64,
+    pub height: f64,
+    pub dob: String,
 }
 
 #[derive(Debug,Deserialize)]
@@ -41,6 +44,16 @@ pub struct ForgotPasswordRequest{
     pub username: String,
     pub password: String,
     pub confirmpassword: String
+}
+
+#[derive(Deserialize)]
+pub struct UpdateUserInfo{
+    pub fullname: Option<String>,
+    pub email: Option<String>,
+    pub password: Option<String>,
+    pub weight: Option<f64>,
+    pub height: Option<f64>,
+    pub dob: Option<String>,
 }
 
 #[derive(Clone)]
@@ -72,10 +85,11 @@ impl Login{
             return HttpResponse::Unauthorized().json(serde_json::json!({ "success": false, "message": format!("{}",result.message)}));
         }
         
+        let user_id = result.user_id.unwrap_or_default(); // Should handle error ideally, but success implied user_id present
         let cookie = Cookie::build("token", jwt_service.generate_token(
-                &result.username).unwrap())
+                &result.username, user_id).unwrap())
                 .path("/")
-                .max_age(TimeDuration::minutes(1))
+                .max_age(TimeDuration::minutes(60))
                 .same_site(actix_web::cookie::SameSite::None)
                 .http_only(true)
                 .finish();
@@ -87,6 +101,7 @@ impl Login{
                         "message": "Login successful"
                     }));
     }
+
     pub async fn forgot_password_handler(
         auth_service: web::Data<AuthService>,
         payload: web::Json<ForgotPasswordRequest>,
@@ -108,7 +123,8 @@ impl Login{
                     HttpResponse::Ok().json(serde_json::json!({
                         "success": true,
                         "message": "Token is valid",
-                        "username": claims.claims.sub
+                        "username": claims.claims.sub,
+                        "user_id": claims.claims.id
                     }))
                 }
                 Err(err) => {
@@ -126,4 +142,23 @@ impl Login{
         }
     }
 
+    pub async fn update_user_handler(auth_service: web::Data<AuthService>,
+        user: AuthenticatedUser,
+        payload: web::Json<UpdateUserInfo>,
+    ) -> impl Responder {
+        let id = user.id;
+        let username = user.username;
+        let update_info = payload.into_inner();
+        let result = auth_service.update_user_details(id, username, update_info).await;
+        HttpResponse::Ok().json(result)
+    }
+
+    pub async fn user_info_handler(auth_service: web::Data<AuthService>,
+        user: AuthenticatedUser
+    ) -> impl Responder{
+        match auth_service.get_user_info(user.id).await{
+            Ok(user_info) => HttpResponse::Ok().json(user_info),
+            Err(e) => HttpResponse::InternalServerError().body(format!("Error: {}", e)),
+        }
+    }
 }

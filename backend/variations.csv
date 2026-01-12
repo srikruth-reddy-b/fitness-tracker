@@ -1,0 +1,42 @@
+id,name,muscle_group_name
+201,Bench Press,Chest
+202,Dumbbell Press,Chest
+203,Incline Bench Press,Chest
+204,Incline Dumbbell Press,Chest
+205,Pec Fly,Chest
+206,Cable Fly,Chest
+207,Pushups,Chest
+208,Pullups,Back
+209,Lat Pulldown,Back
+210,Seated Cable Rows,Back
+211,Barbell Rows,Back
+212,Hyper Extensions,Back
+213,T-Bar Rows,Back
+214,Deadlift,Back
+215,Squats,Legs
+216,Barbell Squats,Legs
+217,Leg Press,Legs
+218,Leg Extensions,Legs
+219,Leg Curls,Legs
+220,Romanian Deadlift,Legs
+221,Lunges,Legs
+222,Calf Raises,Legs
+223,Dumbbell Shoulder Press,Shoulders
+224,Barbell Shoulder Press,Shoulders
+225,Lateral Raises,Shoulders
+226,Rear Delt Pec Fly,Shoulders
+227,Face Pulls,Shoulders
+228,Shrugs,Shoulders
+229,Cable Extension Pushdown,Arms
+230,Tricep Kickback,Arms
+231,Cable Tricep Extension,Arms
+232,Skull Crusher,Arms
+233,Dumbbell Bicep Curl,Arms
+234,Dumbell Bicep Hammer Curl,Arms
+235,Concentration Curl,Arms
+236,Barbell Curls,Arms
+237,Preacher Curls,Arms
+238,Crunches,Abs
+239,Planks,Abs
+240,Leg Raises,Abs
+241,Russian Twists,Abs

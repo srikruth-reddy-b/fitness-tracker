@@ -1,4 +1,6 @@
+use core::hash;
 use std::sync::Arc;
+use anyhow::bail;
 use anyhow::Result;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -10,6 +12,7 @@ use password_hash::{SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use once_cell::sync::Lazy;
 use crate::db::model::NewUser;
+use crate::db::model::UpdateUser;
 use crate::db::{database::DBOperations, model::User};
 use crate::schema::fittrack::users;
 use diesel_async::pooled_connection::deadpool::Pool;
@@ -52,7 +55,7 @@ impl UserDB {
         // }       
     }
 
-    pub async fn add_user<'a>(&self, user: NewUser<'a>) -> Result<bool,>{
+    pub async fn add_user<'a>(&self, mut user: NewUser<'a>) -> Result<bool,>{
         let pool = match &self.pool{
             Some(pok) => pok,
             None => {
@@ -93,14 +96,19 @@ impl UserDB {
         //     Ok(_) => debug!("Registered user {}",username),
         //     Err(err) => return Err(anyhow::anyhow!("Error registering user: {}",err)),
         // }
-        let new_user = NewUser{
-            username : user.username,
-            password: &hashed,
-            email : user.email,
-            fullname: user.fullname
-        };
+        // let new_user = NewUser{
+        //     username : user.username,
+        //     password: &hashed,
+        //     email : user.email,
+        //     fullname: user.fullname,
+        //     weight: None,
+        //     height: None,
+        //     dob: None,
+        // };
+        user.password = &hashed;
         let inserted_user: User = match diesel::insert_into(users::table)
-        .values(&new_user)
+        .values(&user)
+        // .returning(User::as_select())
         .get_result(&mut conn)
         .await{
             Ok(iok) => iok,
@@ -143,12 +151,12 @@ impl UserDB {
         // }    
     }
     
-    pub async fn verify_password(&self, username:String, password: String) -> Result<bool,>{
-        let pass = match self.get_password_by_username(username.clone()).await{
+    pub async fn verify_password(&self, username:String, password: String) -> Result<Option<i32>>{
+        let (id, pass) = match self.get_id_and_password_by_username(username.clone()).await{
             Ok(Some(p)) => p,
             Ok(None) => {
                 warn!("No password found for username, {}",username);
-                return Ok(false);
+                return Ok(None);
             }
             Err(err) => {
                 return Err(anyhow::anyhow!("Error getting password by username: {}",err));
@@ -159,15 +167,13 @@ impl UserDB {
             Err(err) => return Err(anyhow::anyhow!("{}",err)),
         };
 
-        // match  ARGON.verify_password(password.as_bytes(), &parsed_hash){
-        //     Ok(_) => Ok(true),
-        //     Err(err) => return Err(anyhow::anyhow!("{}",err))
-        // }
-        let status = ARGON.verify_password(password.as_bytes(), &parsed_hash).is_ok();
-        Ok(status)
+        match ARGON.verify_password(password.as_bytes(), &parsed_hash).is_ok() {
+            true => Ok(Some(id)),
+            false => Ok(None),
+        }
     }
 
-    pub async fn get_password_by_username(&self, username:String) -> Result<Option<String>,>{
+    pub async fn get_id_and_password_by_username(&self, username:String) -> Result<Option<(i32, String)>>{
         let pool = match &self.pool{
             Some(pok) => pok,
             None => {
@@ -182,29 +188,15 @@ impl UserDB {
         };
         let res = users::table
                 .filter(users::username.eq(username))
-                .select(users::password)
-                .first::<String>(&mut conn)
+                .select((users::id, users::password))
+                .first::<(i32, String)>(&mut conn)
                 .await;
 
         match res {
-            Ok(pw) => Ok(Some(pw)), 
+            Ok(res) => Ok(Some(res)), 
             Err(diesel::result::Error::NotFound) => Ok(None), 
             Err(err) => return Err(anyhow::anyhow!("{}",err)),
         }
-        // let statement = format!(
-        //     "SELECT password FROM {}.users WHERE username = $1;",
-        //     self.schema
-        // );
-        // let params: &[&(dyn ToSql + Sync)] = &[&username];
-        // match self.database.query_opt(statement, params).await{
-        //     Ok(Some(row)) => {
-        //         Ok(row.try_get("password").ok())
-        //     }
-        //     Ok(None) => Ok(None),
-        //     Err(err) =>{
-        //         return Err(anyhow::anyhow!("{}",err))
-        //     }
-        // }
     }
 
     pub async fn update_password(&self, username: String, password: String) -> Result<(),>{
@@ -258,5 +250,58 @@ impl UserDB {
         //        return  Err(anyhow::anyhow!("Error updating password: {}", err))
         //     }
         // }
+    }
+
+    pub async fn update_user_details<'a>(&self, user_id: i32, username: String, user: UpdateUser<'a>) -> Result<(),>{
+        let pool = match &self.pool{
+            Some(pok) => pok,
+            None => {
+                bail!("Pool is not intialised");
+            }
+        };
+        let mut conn = match pool.get().await{
+            Ok(cok) => cok,
+            Err(err) => {
+                bail!("{}",err);
+            }
+        };
+
+        match diesel::update(users::table)
+            .filter(users::id.eq(user_id))
+            .filter(users::username.eq(username))
+            .set(user)
+            .execute(&mut conn)
+            .await{
+                Ok(_) => debug!("Updated user details for user id {}", user_id),
+                Err(err) => bail!("{}",err)
+            };
+
+        Ok(())
+    }
+
+    pub async fn get_user_by_id(&self, user_id: i32) -> Result<Option<User>>{
+        let pool = match &self.pool{
+            Some(pok) => pok,
+            None => {
+                bail!("Pool is not intialised");
+            }
+        };
+        let mut conn = match pool.get().await{
+            Ok(cok) => cok,
+            Err(err) => {
+                bail!("{}",err);
+            }
+        };
+
+        let res = users::table
+                .filter(users::id.eq(user_id))
+                .first::<User>(&mut conn)
+                .await;
+
+        match res {
+            Ok(user) => Ok(Some(user)), 
+            Err(diesel::result::Error::NotFound) => Ok(None), 
+            Err(err) => bail!("{}",err),
+        }
     }
 }
