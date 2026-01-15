@@ -71,7 +71,7 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-blue-600 rounded-lg"></div>
+            <img src="/auth-logo.png" alt="Logo" className="h-8 w-8 rounded-lg" />
             <span className="text-2xl font-bold tracking-tight">Fitness Tracker</span>
           </div>
         </div>

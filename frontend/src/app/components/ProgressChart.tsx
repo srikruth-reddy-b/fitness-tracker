@@ -42,7 +42,7 @@ export default function ProgressPerformanceCard() {
     const [chartData, setChartData] = useState<WeeklyRow[]>([]);
 
     // Color Palette for dynamic assignment
-    const COLORS = ["#111827", "#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed"];
+    const COLORS = ["#111827", "#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#e11d48", "#0ea5e9", "#22c55e", "#f59e0b"];
 
     useEffect(() => {
         const fetchVariations = async () => {
@@ -52,7 +52,7 @@ export default function ProgressPerformanceCard() {
                     const data = await res.json();
                     setAvailableVariations(data);
                     if (data.length > 0) {
-                        const defaults = data.slice(0, 3).map((v: any) => v.id);
+                        const defaults = data.slice(0, 1).map((v: any) => v.id);
                         setSelectedVariationIds(defaults);
                     }
                 }
