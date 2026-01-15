@@ -1,8 +1,7 @@
 "use client";
-import { EyeIcon, EyeSlashIcon,ArrowLeftIcon} from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import React, { useState } from "react";
-import { AuthCard } from '../../components/AuthCard'
 import { AuthInput } from '../../components/AuthInput'
 import { AuthButton } from '../../components/AuthButton'
 import Popup from "../../components/Popup";
@@ -15,12 +14,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [showPopup, setShowPopup] = useState(false);
-  
+
   const router = useRouter();
   const handleContinue = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (username.trim()) {
-      /* API CALL*/
       setStep(2);
     } else {
       alert("Please enter username");
@@ -35,8 +33,6 @@ export default function LoginPage() {
       return;
     }
 
-    console.log("Logging in with:", { username, password });
-
     try {
       const response = await fetch(`${process.env.API_URL}api/login`, {
         method: "POST",
@@ -48,15 +44,12 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
-      console.log(data);
       if (!response.ok || !data.success) {
         setPopupMessage(data.message || "Login failed");
         setShowPopup(true);
         setStep(1);
         return;
       }
-
-      console.log("Login successful, JWT stored in cookie!");
 
       router.push("/dashboard");
     } catch (error) {
@@ -68,97 +61,137 @@ export default function LoginPage() {
 
 
   return (
-    
-      <AuthCard>
-        <Popup
-            message={popupMessage} 
+    <div className="flex min-h-screen bg-white">
+      {/* Left Panel: Hero/Motivational */}
+      <div className="hidden lg:flex w-1/2 bg-gray-900 relative overflow-hidden flex-col justify-between p-12 text-white">
+        {/* Background Gradient/Image Placeholder */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 to-black z-0 pointer-events-none" />
+        {/* You can add a real Next.js Image here if you have one. For now, a CSS pattern works great. */}
+        <div className="absolute inset-0 opacity-20 z-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-500 via-gray-900 to-black"></div>
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-blue-600 rounded-lg"></div>
+            <span className="text-2xl font-bold tracking-tight">Fitness Tracker</span>
+          </div>
+        </div>
+
+        <div className="relative z-10 flex-1 flex flex-col justify-center">
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50">
+            TIME<br />
+            FOR<br />
+            FITNESS
+          </h1>
+          <p className="text-lg text-gray-400 font-medium max-w-sm">
+            Track your progress. Crush your goals. The best time to start is now.
+          </p>
+        </div>
+      </div>
+
+      {/* Right Panel: Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white text-gray-900">
+        <div className="w-full max-w-md space-y-8">
+          <Popup
+            message={popupMessage}
             onClose={() => setPopupMessage("")}
-        />
-        {step === 2 && (
-          <button
-            type="button"
-            onClick={() => setStep(1)}
-            className="mb-4 text-sm font-medium text-indigo-600 hover:underline"
-          >
-          <ArrowLeftIcon className="h-5 w-6" />
-          </button>
-        )}
+          />
 
-        <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">
-          Log in to fitness
-        </h1>
-
-        {step === 1 ? (
-          <form onSubmit={handleContinue} className="space-y-4">
-            <div>
-              <label className="block text-m font-medium text-gray-800">
-                Username
-              </label>
-              <AuthInput
-                type="text"
-                value={username}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setUsername(e.target.value)
-                }
-                placeholder="Enter username"
-                required
-              />
-            </div>
-            <AuthButton type="submit">Continue</AuthButton>
-
-            <p className="mt-3 text-center text-sm text-gray-700">
-              Don’t have an account?{" "}
-              
-              <Link
-                href="/register"
-                className="font-medium text-indigo-500 hover:underline"
-              >
-                Sign up
-              </Link>
+          <div className="text-center lg:text-left">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+              {step === 1 ? "Welcome back" : `Hi, ${username}`}
+            </h1>
+            <p className="mt-2 text-gray-500">
+              {step === 1 ? "Enter your username to continue" : "Enter your password to sign in"}
             </p>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <label className="block text-m font-medium text-gray-800">
-                Password
-              </label>
-              <AuthInput
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setPassword(e.target.value)
-                }
-                placeholder="Enter password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-[10%]"
-              >
-                {showPassword ? (
-                  <EyeSlashIcon className="h-5 w-5 text-black " />
-                ) : (
-                  <EyeIcon className="h-5 w-5 text-black " />
-                )}
-                {/* {showPassword ? "🙈" : "👁️"} */}
-              </button>
-            </div>
+          </div>
 
-            <p className="text-right text-sm">
-              <Link
-                href="/reset-pwd"
-                className="font-medium text-indigo-500 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </p>
+          {step === 2 && (
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+            >
+              <ArrowLeftIcon className="h-4 w-4 mr-1" />
+              Back
+            </button>
+          )}
 
-            <AuthButton type="submit">Sign In</AuthButton>
-          </form>
-        )}
-      </AuthCard>
+          {step === 1 ? (
+            <form onSubmit={handleContinue} className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">
+                  Username
+                </label>
+                <AuthInput
+                  type="text"
+                  value={username}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setUsername(e.target.value)
+                  }
+                  placeholder="Username"
+                  required
+                  className="!bg-gray-50 !border-gray-200 focus:!border-blue-600 focus:!ring-blue-600/20"
+                  autoFocus
+                />
+              </div>
+              <AuthButton type="submit" className="w-full py-3 bg-black hover:bg-gray-800 text-white rounded-xl font-bold transition-all">
+                Continue
+              </AuthButton>
 
+              <p className="text-center text-sm text-gray-500">
+                Don’t have an account?{" "}
+                <Link href="/register" className="font-bold text-blue-600 hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <AuthInput
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setPassword(e.target.value)
+                    }
+                    placeholder="••••••••"
+                    required
+                    className="!bg-gray-50 !border-gray-200 focus:!border-blue-600 focus:!ring-blue-600/20 pr-10"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? (
+                      <EyeSlashIcon className="h-5 w-5" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                <div className="flex justify-end mt-2">
+                  <Link
+                    href="/reset-pwd"
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              </div>
+
+              <AuthButton type="submit" className="w-full py-3 bg-black hover:bg-gray-800 text-white rounded-xl font-bold transition-all">
+                Sign In
+              </AuthButton>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

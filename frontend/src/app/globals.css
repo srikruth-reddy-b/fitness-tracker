@@ -1,27 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: radial-gradient(
-    circle at center,
-    rgba(13, 17, 243, 0.2),
-    rgb(20, 2, 76)
-  );
-  /* background-image: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%); */
-  --foreground: #090909;
+  /* Light Mode: Soft Sky Blue Gradient */
+  --background: linear-gradient(to bottom right, #f0f9ff, #e0f2fe);
+  --foreground: #0f172a;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: radial-gradient(
-      circle at center,
-      rgba(253, 0, 126, 0.2),
-      rgb(49, 1, 22)
-    );
-    /* background-image: linear-gradient(120deg, #aac8f8 0%, #c7e6f5 100%); */
-    /* background-image: linear-gradient(to top, #a18cd1 0%, #fbc2eb 100%); */
-    --foreground: #ededed;
+    --background: #0f172a;
+    /* Slate 900 - Premium Dark */
+    --foreground: #f8fafc;
+    /* Slate 50 */
   }
 }
 

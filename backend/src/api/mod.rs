@@ -4,8 +4,8 @@ pub mod dashboard;
 pub mod middleware;
 use std::sync::Arc;
 use log::error;
-use actix_web::{web, App};
-use crate::{api::{login::Login, workouts::Workouts}, services::{auth_service::AuthService, jwt_service::JwtService, post_service::PostService, get_service::GetService}};
+use actix_web::web;
+use crate::{api::{login::Login, workouts::Workouts}, services::{auth_service::AuthService, get_service::GetService, jwt_service::JwtService, post_service::PostService, put_service::PutService}};
 
 #[derive(Clone)]
 pub struct API{
@@ -13,29 +13,31 @@ pub struct API{
     jwt_service: Arc<JwtService>,
     post_service: Arc<PostService>,
     get_service: Arc<GetService>,
+    put_service: Arc<PutService>,
     login_api : Option<Login>,
     workouts_api: Option<Workouts>
 }
 impl API{
-    pub fn new(auth_service: Arc<AuthService>, jwt_service: Arc<JwtService>, post_service: Arc<PostService>, get_service: Arc<GetService>) -> Self{
+    pub fn new(auth_service: Arc<AuthService>, jwt_service: Arc<JwtService>, post_service: Arc<PostService>, get_service: Arc<GetService>,put_service:Arc<PutService>) -> Self{
         API{
             auth_service,
             jwt_service,
             post_service,
             get_service,
+            put_service,
             login_api: None,
             workouts_api: None
         }
     }
 
     pub async  fn init(&mut self ){
-        let login_api = Login::new(self.auth_service.clone());
+        let login_api = Login::new();
         self.login_api = Some(login_api);
         if self.login_api.is_none(){
-            error!("Login API could not be initialised");
+            error!("Login API could not be initialized");
         }
 
-        let workouts_api = Workouts::new(self.post_service.clone(), self.get_service.clone());
+        let workouts_api = Workouts::new();
         self.workouts_api = Some(workouts_api);
     }
 
@@ -43,7 +45,8 @@ impl API{
         cfg.app_data(web::Data::from(self.auth_service.clone()))
            .app_data(web::Data::from(self.jwt_service.clone()))
            .app_data(web::Data::from(self.post_service.clone()))
-           .app_data(web::Data::from(self.get_service.clone()));
+           .app_data(web::Data::from(self.get_service.clone()))
+           .app_data(web::Data::from(self.put_service.clone()));
 
         // configure routes
         cfg.service(
@@ -71,6 +74,9 @@ impl API{
                 .route("/workouts/muscle_groups", web::get().to(crate::api::workouts::Workouts::get_muscle_groups_handler))
                 .route("/workouts/variations", web::get().to(crate::api::workouts::Workouts::get_variations_handler))
                 .route("/workouts/cardio_exercises", web::get().to(crate::api::workouts::Workouts::get_cardio_exercises_handler))
+                .route("/workouts/muscle_groups", web::post().to(crate::api::workouts::Workouts::create_muscle_group_handler))
+                .route("/workouts/variations", web::post().to(crate::api::workouts::Workouts::create_variation_handler))
+                .route("/workouts/cardio_exercises", web::post().to(crate::api::workouts::Workouts::create_cardio_exercise_handler))
         );
     } 
 }

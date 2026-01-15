@@ -1,11 +1,8 @@
 use backend::db::database::DBOperations;
 use backend::schema::fittrack::{muscle_groups, variations, cardio_exercises, users};
-use backend::db::model::{MuscleGroup, Variation, CardioExercise};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::error::Error;
 use csv::Reader;
 use std::fs::File;
 use anyhow::{Result, bail};

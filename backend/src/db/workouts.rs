@@ -2,13 +2,9 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use chrono::NaiveDate;
 use diesel::{ExpressionMethods, QueryDsl, BoolExpressionMethods};
-// use diesel::RunQueryDsl;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
-use crate::{db::{database::DBOperations, model::{CardioLog, NewCardioLog, NewWorkoutSession, NewWorkoutSet, UpdateCardioLog, UpdateWorkoutSession, UpdateWorkoutSet, WorkoutSession, WorkoutSet, MuscleGroup, Variation, CardioExercise}}, schema::fittrack::{cardio_logs, sets, workout_sessions, variations, muscle_groups, cardio_exercises}};
-
-
+use crate::{db::{database::DBOperations, model::{CardioLog, WorkoutSession, WorkoutSet, MuscleGroup, Variation, CardioExercise}}, schema::fittrack::{cardio_logs, sets, workout_sessions, variations, muscle_groups, cardio_exercises}};
 use anyhow::{bail, Result};
-// use diesel::SelectableHelper;
 use diesel_async::RunQueryDsl;
 
 pub struct WorkoutDB{
@@ -33,212 +29,28 @@ impl WorkoutDB{
         Ok(())
     }
 
-    pub async fn add_workout_session(&self, mut session: NewWorkoutSession) -> Result<WorkoutSession>{
-        let pool = match &self.pool{
-            Some(pok) => pok,
-            None => bail!("Pool is not intialiased"),
+    pub async fn get_history(&self, user_id: i32, limit: i64, start_date: Option<NaiveDate>, end_date: Option<NaiveDate>) -> Result<Vec<WorkoutSession>> {
+        let pool = match &self.pool {
+            Some(p) => p,
+            None => bail!("Pool not initialized"),
         };
-        let mut conn = match pool.get().await{
-            Ok(cok) => cok,
-            Err(err) => {
-                anyhow::bail!("{}",err);
-            }
-        };
-        if session.title.is_none(){
-            session.title = Some(format!("Session-{}", session.date));
+        let mut conn = pool.get().await?;
+
+        use diesel::{ExpressionMethods, QueryDsl};
+
+        let mut query = workout_sessions::table.into_boxed();
+        query = query.filter(workout_sessions::user_id.eq(user_id));
+
+        if let Some(s) = start_date {
+            query = query.filter(workout_sessions::start_time.ge(s.and_hms_opt(0, 0, 0).unwrap()));
         }
-        let inserted_session: WorkoutSession = match diesel::insert_into(workout_sessions::table)
-            .values(&session)
-            // .returning(WorkoutSession::as_select()) 
-            .get_result::<WorkoutSession>(&mut conn)
-            .await
-            {
-                Ok(iok) => iok,
-                Err(err) => bail!("{}",err)
-            };
-        Ok(inserted_session)
-    }
 
-    pub async fn add_workout_set(&self, set:NewWorkoutSet) -> Result<(),>{
-        println!("Adding workout set: {:?}", set);
-        let pool = match &self.pool{
-            Some(pok ) => pok,
-            None => bail!("Pool is not intialised"),
-        };
-
-        let mut conn = match pool.get().await{
-            Ok(c) => c,
-            Err(err) => bail!(err),
-        };
-
-        let inserted_set:WorkoutSet = match diesel::insert_into(sets::table)
-            .values(&set)
-            // .returning(WorkoutSet::as_select()) 
-            .get_result(&mut conn)
-            .await
-            {
-                Ok(sok) => sok,
-                Err(err) => bail!("{}",err)
-            };
-
-        println!("Inserted set: {:?}", inserted_set);
-        Ok(())
-    }
-
-    pub async fn add_workout_cardio(&self, logs:NewCardioLog) -> Result<(),>{
-        let pool = match &self.pool{
-            Some(pok ) => pok,
-            None => bail!("Pool is not intialised"),
-        };
-
-        let mut conn = match pool.get().await{
-            Ok(c) => c,
-            Err(err) => bail!(err),
-        };
-
-        let inserted_log:CardioLog = match diesel::insert_into(cardio_logs::table)
-            .values(&logs)
-            // .returning(WorkoutSet::as_select()) 
-            .get_result(&mut conn)
-            .await
-            {
-                Ok(sok) => sok,
-                Err(err) => bail!("{}",err)
-            };
-        Ok(())
-    }
-
-    pub async fn update_workout_session(&self, user_id: i32, session_id: i32, data: UpdateWorkoutSession) -> Result<WorkoutSession> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let updated_session = diesel::update(workout_sessions::table)
-            .filter(workout_sessions::id.eq(session_id))
-            .filter(workout_sessions::user_id.eq(user_id))
-            .set(data)
-            .get_result(&mut conn)
-            .await?;
-        Ok(updated_session)
-    }
-
-    pub async fn delete_workout_session(&self, user_id: i32, session_id: i32) -> Result<()> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let count = diesel::delete(workout_sessions::table)
-            .filter(workout_sessions::id.eq(session_id))
-            .filter(workout_sessions::user_id.eq(user_id))
-            .execute(&mut conn)
-            .await?;
-        
-        if count == 0 {
-            bail!("Session not found or access denied");
+        if let Some(e) = end_date {
+            query = query.filter(workout_sessions::start_time.le(e.and_hms_opt(23, 59, 59).unwrap()));
         }
-        Ok(())
-    }
 
-    pub async fn update_workout_set(&self, user_id: i32, set_id: i32, data: UpdateWorkoutSet) -> Result<WorkoutSet> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let updated_set = diesel::update(sets::table)
-            .filter(sets::id.eq(set_id))
-            .filter(sets::user_id.eq(user_id))
-            .set(data)
-            .get_result(&mut conn)
-            .await?;
-        Ok(updated_set)
-    }
-
-    pub async fn delete_workout_set(&self, user_id: i32, set_id: i32) -> Result<()> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let count = diesel::delete(sets::table)
-            .filter(sets::id.eq(set_id))
-            .filter(sets::user_id.eq(user_id))
-            .execute(&mut conn)
-            .await?;
-        
-        if count == 0 {
-            bail!("Set not found or access denied");
-        }
-        Ok(())
-    }
-
-    pub async fn update_cardio_log(&self, user_id: i32, log_id: i32, data: UpdateCardioLog) -> Result<CardioLog> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let updated_log = diesel::update(cardio_logs::table)
-            .filter(cardio_logs::id.eq(log_id))
-            .filter(cardio_logs::user_id.eq(user_id))
-            .set(data)
-            .get_result(&mut conn)
-            .await?;
-        Ok(updated_log)
-    }
-
-    pub async fn delete_cardio_log(&self, user_id: i32, log_id: i32) -> Result<()> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let count = diesel::delete(cardio_logs::table)
-            .filter(cardio_logs::id.eq(log_id))
-            .filter(cardio_logs::user_id.eq(user_id))
-            .execute(&mut conn)
-            .await?;
-        
-        if count == 0 {
-            bail!("Cardio log not found or access denied");
-        }
-        Ok(())
-    }
-
-    pub async fn get_history(&self, user_id: i32, limit: i64) -> Result<Vec<WorkoutSession>> {
-        let pool = match &self.pool {
-            Some(p) => p,
-            None => bail!("Pool not initialized"),
-        };
-        let mut conn = pool.get().await?;
-
-        use diesel::{ExpressionMethods, QueryDsl};
-
-        let history = workout_sessions::table
-            .filter(workout_sessions::user_id.eq(user_id))
-            .order(workout_sessions::start_time.desc()) // Wait, checking model it is `start_time` or `date`?
-            // Checking model.rs: `start_time: chrono::NaiveDateTime`.
-            // Checking DB Schema: `start_time`
+        let history = query
+            .order(workout_sessions::start_time.desc())
             .limit(limit)
             .get_results(&mut conn)
             .await?;
@@ -254,22 +66,18 @@ impl WorkoutDB{
 
         use diesel::{ExpressionMethods, QueryDsl};
 
-        // 1. Get Session
         let session: WorkoutSession = workout_sessions::table
             .filter(workout_sessions::id.eq(session_id))
             .filter(workout_sessions::user_id.eq(user_id))
             .first(&mut conn)
             .await?;
 
-        // 2. Get Sets (belonging to this session). 
-        // Note: Sets have `workout_session_id`.
         let session_sets: Vec<WorkoutSet> = sets::table
             .filter(sets::workout_session_id.eq(session_id))
             .filter(sets::user_id.eq(user_id)) // Redundant security but good
             .get_results(&mut conn)
             .await?;
 
-        // 3. Get Cardio Logs
         let session_cardio: Vec<CardioLog> = cardio_logs::table
             .filter(cardio_logs::workout_session_id.eq(session_id))
             .filter(cardio_logs::user_id.eq(user_id))
@@ -327,7 +135,6 @@ impl WorkoutDB{
                 Ok(data)
             },
             Err(e) => {
-                // println!("Error executing query: {:?}", e);
                 bail!(e)
             }
         }
@@ -363,7 +170,6 @@ impl WorkoutDB{
                 Ok(data)
             },
             Err(e) => {
-                // println!("Error executing query: {:?}", e);
                 bail!(e)
             }
         }
@@ -404,7 +210,6 @@ impl WorkoutDB{
         };
         let mut conn = pool.get().await?;
         
-        // Fetch global (0) or specific user
         let results = muscle_groups::table
             .filter(muscle_groups::user_id.eq(user_id).or(muscle_groups::user_id.eq(0)))
             .load::<MuscleGroup>(&mut conn)

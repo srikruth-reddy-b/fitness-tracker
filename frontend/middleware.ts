@@ -20,9 +20,8 @@ export async function middleware(req: NextRequest) {
   // Optional: verify token with backend API
   try {
     const res = await fetch(`${process.env.API_URL}/verify-token`, {
-      method: "POST",
+      method: "GET",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
       // include cookies if backend needs it
       credentials: "include",
     });

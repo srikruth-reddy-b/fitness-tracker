@@ -6,9 +6,10 @@ interface ModalProps {
     onClose: () => void;
     title?: string;
     children: React.ReactNode;
+    maxWidth?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = "max-w-md" }) => {
     const [show, setShow] = useState(isOpen);
 
     useEffect(() => {
@@ -19,7 +20,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity opacity-100">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 transform transition-all scale-100 p-6">
+            <div className={`bg-white rounded-2xl shadow-xl w-full ${maxWidth} mx-4 transform transition-all scale-100 p-6`}>
                 <div className="flex justify-between items-center mb-4">
                     {title && <h3 className="text-xl font-bold text-gray-800">{title}</h3>}
                     <button

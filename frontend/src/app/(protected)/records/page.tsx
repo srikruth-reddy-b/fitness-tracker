@@ -6,6 +6,7 @@ import { CalendarIcon, ClockIcon, PencilSquareIcon, TrashIcon } from "@heroicons
 import Popup from "../../components/Popup";
 import EditSessionModal from "../../components/EditSessionModal";
 import Modal from "../../components/Modal";
+import { useAuthFetch } from "../../hooks/useAuthFetch";
 
 interface WorkoutSession {
     id: number;
@@ -18,20 +19,29 @@ interface WorkoutSession {
 }
 
 export default function RecordsPage() {
+    const authFetch = useAuthFetch();
     const [sessions, setSessions] = useState<WorkoutSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [popupMessage, setPopupMessage] = useState("");
     const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
     const [deletingSessionId, setDeletingSessionId] = useState<number | null>(null);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     useEffect(() => {
         fetchHistory();
-    }, []);
+    }, [startDate, endDate]);
 
     const fetchHistory = async () => {
+        setLoading(true);
         try {
-            const res = await fetch(`${process.env.API_URL}api/workouts/history?limit=50`, {
+            const params = new URLSearchParams();
+            params.append("limit", "50");
+            if (startDate) params.append("start_date", startDate);
+            if (endDate) params.append("end_date", endDate);
+
+            const res = await authFetch(`${process.env.API_URL}api/workouts/history?${params.toString()}`, {
                 credentials: "include"
             });
             if (!res.ok) throw new Error("Failed to fetch history");
@@ -60,7 +70,7 @@ export default function RecordsPage() {
     const confirmDelete = async () => {
         if (!deletingSessionId) return;
         try {
-            const res = await fetch(`${process.env.API_URL}api/workouts/session/${deletingSessionId}`, {
+            const res = await authFetch(`${process.env.API_URL}api/workouts/session/${deletingSessionId}`, {
                 method: "DELETE",
                 credentials: "include"
             });
@@ -83,7 +93,39 @@ export default function RecordsPage() {
 
     return (
         <div className="max-w-4xl mx-auto p-6">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900">Workout Records</h1>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Workout Records</h1>
+                </div>
+
+                {/* Filters */}
+                <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 flex gap-3 items-center">
+                    <div className="flex items-center gap-2 px-2">
+                        <CalendarIcon className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="date"
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        className="border border-gray-200 text-gray-900 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                    />
+                    <span className="text-gray-400">-</span>
+                    <input
+                        type="date"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        className="border border-gray-200 text-gray-900 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                    />
+                    {(startDate || endDate) && (
+                        <button
+                            onClick={() => { setStartDate(""); setEndDate(""); }}
+                            className="text-xs text-red-500 font-bold hover:underline px-2"
+                        >
+                            Clear
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {sessions.length === 0 ? (
                 <div className="bg-gray-50 rounded-xl p-10 text-center text-gray-500">
@@ -124,7 +166,6 @@ export default function RecordsPage() {
                             </div>
 
                             <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                {/* TODO: Add Edit Link */}
                                 <button
                                     onClick={() => setEditingSessionId(session.id)}
                                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"

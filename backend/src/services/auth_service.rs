@@ -1,10 +1,9 @@
 use std::sync::Arc;
-use log::{error, info};
+use log::{debug, error, info};
 use serde::Serialize;
 use password_hash::{SaltString, rand_core::OsRng, PasswordHasher};
-use crate::{api::login::{ForgotPasswordRequest, LoginRequest, RegisterRequest, UpdateUserInfo}, db::{model::{NewUser, UpdateUser, User}, user::{UserDB, ARGON}}};
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm, errors::Error as JwtError};
-// use crate::api::login_page::Claims;
+use crate::{api::login::{ForgotPasswordRequest, LoginRequest, RegisterRequest, UpdateUserInfo}, db::{model::{NewUser, UpdateUser}, user::{UserDB, ARGON}}};
+
 #[derive(Serialize)]
 pub struct AuthResponse{
     pub username: String,
@@ -26,6 +25,7 @@ impl AuthService{
         let password = request.password;
         match self.user.verify_password(username, password).await{
             Ok(Some(id)) =>{
+                info!("User {} authenticated successfully", request.username);
                 return AuthResponse{
                     username: request.username,
                     user_id: Some(id),
@@ -34,6 +34,7 @@ impl AuthService{
                 }
             }
             Ok(None) => {
+                error!("No user found or Invalid credentials for user: {}", request.username);
                 return AuthResponse{
                     username: request.username,
                     user_id: None,
@@ -42,7 +43,7 @@ impl AuthService{
                 }
             }
             Err(err) =>{
-                error!("Error during login: {}",err);
+                error!("Error during authentication for user {}: {}", request.username, err);
                 return AuthResponse{
                     username: request.username,
                     user_id: None,
@@ -51,28 +52,10 @@ impl AuthService{
                 }
             }
         }
-        // if request.username == "test" && request.password == "test"{
-        //     println!("success");
-        //     AuthResponse{
-        //         success: true,
-        //         message: "Login successful".to_string(),
-        //     }
-        // }
-        // else{
-            // AuthResponse{
-            //     success: false,
-            //     message: "Invalid credentials".to_string(),
-            // }
-        // }
     }
     pub async fn register(&self, request: RegisterRequest) -> AuthResponse{
-        // let user = User{
-            //     fullname: request.fullname,
-        //     username: request.username,
-        //     email: request.email,
-        //     password: request.password,
-        // };
         if !request.password.eq(&request.confirmpassword){
+            debug!("Passwords do not match for user: {}", request.username);
             return AuthResponse{
                 username: request.username,
                 user_id: None,
@@ -94,13 +77,13 @@ impl AuthService{
                 info!("User registered successfully");
                 return AuthResponse{
                     username: request.username,
-                    user_id: None, // Could return ID if register returns it
+                    user_id: None,
                     success: true,
                     message: "User registered".to_string()
                 }
             }
             Ok(false) => {
-                info!("user exists");
+                info!("User already exists");
                 return AuthResponse{
                     username: request.username,
                     user_id: None,
@@ -135,6 +118,7 @@ impl AuthService{
         }
         match self.user.update_password(username, password).await{
             Ok(_) => {
+                info!("Password updated successfully for user: {}", forgot_password.username);
                 AuthResponse{
                     username: forgot_password.username,
                     user_id: None,
@@ -155,6 +139,7 @@ impl AuthService{
     }
 
     pub async fn update_user_details(&self, user_id: i32, username: String, user: UpdateUserInfo) -> AuthResponse{
+        info!("Updating user details for user id: {}", user_id);
         let hashed_password = if let Some(pass) = &user.password {
             let salt = SaltString::generate(&mut OsRng);
             match ARGON.hash_password(pass.as_bytes(), &salt) {
@@ -186,6 +171,7 @@ impl AuthService{
         };
         match self.user.update_user_details(user_id, username.clone(), userinfo).await{
             Ok(_) => {
+                info!("User details updated successfully for user id: {}", user_id);
                 AuthResponse{
                     username,
                     user_id: Some(user_id),
@@ -204,27 +190,4 @@ impl AuthService{
             }
         }
     }
-
-    pub async fn get_user_info(&self, user_id: i32) -> anyhow::Result<User,>{
-        match self.user.get_user_by_id(user_id).await{
-            Ok(Some(user)) => Ok(user),
-            Ok(None) => Err(anyhow::anyhow!("User not found")),
-            Err(err) => {
-                error!("Error fetching user info: {}", err);
-                Err(anyhow::anyhow!("Error fetching user info"))
-            }
-        }
-    }
-    // pub async fn verify_jwt(&self, token: &str) -> Result<String, JwtError> {
-    //     println!("called 2");
-    //     let secret = "mysecretkey";
-    //     let token_data = decode::<Claims>(
-    //         token,
-    //         &DecodingKey::from_secret(secret.as_ref()),
-    //         &Validation::new(Algorithm::HS256),
-    //     )?;
-    //     println!("verfied jwt");
-    //     println!("{:#?}",token_data);
-    //     Ok(token_data.claims.sub)
-    // }
 }

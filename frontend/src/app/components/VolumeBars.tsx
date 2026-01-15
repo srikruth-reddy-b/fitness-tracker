@@ -2,41 +2,6 @@
 
 import { useMemo, useState, useEffect } from "react";
 
-/* ---------------- Types ---------------- */
-
-type MuscleGroup =
-  | "Chest"
-  | "Back"
-  | "Legs"
-  | "Shoulders"
-  | "Arms"
-  | "Core";
-
-type MuscleTotal = {
-  muscle: MuscleGroup;
-  totalSets: number;
-};
-
-/* ---------------- Thresholds ---------------- */
-
-const OPTIMAL_MIN = 10;
-const OPTIMAL_MAX = 20;
-const HIGH_RISK = 25;
-const MAX_SCALE = 30;
-
-/* ---------------- Mock Data ---------------- */
-
-const MUSCLE_TOTALS: MuscleTotal[] = [
-  { muscle: "Chest", totalSets: 14 },
-  { muscle: "Back", totalSets: 36 },
-  { muscle: "Legs", totalSets: 18 },
-  { muscle: "Shoulders", totalSets: 42 },
-  { muscle: "Arms", totalSets: 24 },
-  { muscle: "Core", totalSets: 8 },
-];
-
-/* ---------------- Helpers ---------------- */
-
 function formatDateInput(date: Date) {
   return date.toISOString().split("T")[0];
 }
@@ -65,44 +30,50 @@ function getStatus(avg: number) {
   return { label: "High Fatigue", color: "bg-red-500" };
 }
 
-/* ---------------- Mapping ---------------- */
-const MUSCLE_IDS: Record<MuscleGroup, number> = {
-  Chest: 1,
-  Back: 2,
-  Legs: 3,
-  Shoulders: 4,
-  Arms: 5,
-  Core: 6,
-};
+/* ---------------- Types ---------------- */
 
-const ID_TO_MUSCLE: Record<number, MuscleGroup> = Object.entries(MUSCLE_IDS).reduce(
-  (acc, [key, value]) => ({ ...acc, [value]: key as MuscleGroup }),
-  {}
-);
+type MuscleGroup = string;
+
+type MuscleTotal = {
+  muscle: MuscleGroup;
+  totalSets: number;
+};
+/* ---------------- Thresholds ---------------- */
+
+const OPTIMAL_MIN = 10;
+const OPTIMAL_MAX = 20;
+const HIGH_RISK = 25;
+const MAX_SCALE = 30;
 
 /* ---------------- Component ---------------- */
 
 export default function VolumeBars() {
+  /* ---------------- State ---------------- */
   const [toDate, setToDate] = useState(new Date());
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
     return d;
   });
-  const [muscleTotals, setMuscleTotals] = useState<MuscleTotal[]>(MUSCLE_TOTALS);
+  const [muscleTotals, setMuscleTotals] = useState<MuscleTotal[]>([]);
 
   const weeks = useMemo(
     () => weeksBetween(fromDate, toDate),
     [fromDate, toDate]
   );
 
+  /* ---------------- Fetch & Calc ---------------- */
   useEffect(() => {
-    const fetchData = async () => {
-      const fromStr = formatDateInput(fromDate);
-      const toStr = formatDateInput(toDate);
-      const ids = Object.values(MUSCLE_IDS);
-
+    const fetchMetadataAndData = async () => {
       try {
+        const mgResponse = await fetch(`${process.env.API_URL}api/workouts/muscle_groups`, { credentials: "include" });
+        if (!mgResponse.ok) return;
+        const muscleGroups: { id: number, name: string }[] = await mgResponse.json();
+
+        const fromStr = formatDateInput(fromDate);
+        const toStr = formatDateInput(toDate);
+        const ids = muscleGroups.map(mg => mg.id);
+
         const response = await fetch(`${process.env.API_URL}api/mslegrpsumm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,13 +88,10 @@ export default function VolumeBars() {
         if (response.ok) {
           const data: { muscle_group_id: number; total_sets: number }[] = await response.json();
 
-          // Map back to MuscleTotal structure
-          const newTotals: MuscleTotal[] = Object.keys(MUSCLE_IDS).map((key) => {
-            const muscle = key as MuscleGroup;
-            const id = MUSCLE_IDS[muscle];
-            const found = data.find(d => d.muscle_group_id === id);
+          const newTotals: MuscleTotal[] = muscleGroups.map((mg) => {
+            const found = data.find(d => d.muscle_group_id === mg.id);
             return {
-              muscle,
+              muscle: mg.name, 
               totalSets: found ? found.total_sets : 0
             };
           });
@@ -135,7 +103,7 @@ export default function VolumeBars() {
       }
     };
 
-    fetchData();
+    fetchMetadataAndData();
   }, [fromDate, toDate]);
 
   const data = useMemo(() => {
@@ -150,7 +118,6 @@ export default function VolumeBars() {
 
   return (
     <div className="bg-white p-8 rounded-2xl shadow-[4px_0_20px_rgba(0,0,0,0.05)] border border-gray-100 w-full relative">
-      {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900">
@@ -161,7 +128,6 @@ export default function VolumeBars() {
           </p>
         </div>
 
-        {/* Date range */}
         <div className="flex gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">From</label>
@@ -209,7 +175,6 @@ export default function VolumeBars() {
               </div>
 
               <div className="relative h-3 w-full rounded-full bg-gray-100 overflow-hidden">
-                {/* Threshold markers - Hidden overflow means markers need z-index or care, but sticking to simple layers */}
                 {[OPTIMAL_MIN, OPTIMAL_MAX, HIGH_RISK].map(
                   (t) => (
                     <div
@@ -222,7 +187,6 @@ export default function VolumeBars() {
                   )
                 )}
 
-                {/* Actual bar (single color) */}
                 <div
                   className={`h-full rounded-full ${status.color} transition-all duration-1000 ease-out`}
                   style={{ width: `${width}%` }}
@@ -233,7 +197,6 @@ export default function VolumeBars() {
         })}
       </div>
 
-      {/* Legend */}
       <div className="mt-8 pt-6 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-gray-500">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-gray-300"></div>

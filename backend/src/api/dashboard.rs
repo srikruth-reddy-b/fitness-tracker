@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, web};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
-use crate::{api::middleware::AuthenticatedUser, services::get_service::{self, GetService}};
+use crate::{api::middleware::AuthenticatedUser, services::get_service::{GetService}};
 
 #[derive(Debug,Deserialize,Serialize)]
 pub struct MonthlyWorkoutRequest{

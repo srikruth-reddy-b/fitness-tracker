@@ -6,8 +6,6 @@ import Modal from "../../components/Modal";
 import Popup from "../../components/Popup";
 import { PlusIcon, ChevronDownIcon, ArrowPathIcon, TrashIcon } from "@heroicons/react/24/outline";
 
-// Mock Data (Keeping these for dropdowns)
-// Types
 type LogType = 'strength' | 'cardio';
 
 interface MuscleGroup {
@@ -55,17 +53,14 @@ type LogEntry = StrengthLogEntry | CardioLogEntry;
 export default function LogsPage() {
     const router = useRouter();
 
-    // Session State
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
     const [startTime, setStartTime] = useState("06:00");
     const [endTime, setEndTime] = useState("07:30");
 
-    // Entry State
     const [logType, setLogType] = useState<LogType>('strength');
 
-    // Selection State (IDs)
     const [selectedMuscleGroupId, setSelectedMuscleGroupId] = useState<number | "">("");
     const [selectedVariationId, setSelectedVariationId] = useState<number | "">("");
     const [selectedCardioId, setSelectedCardioId] = useState<number | "">("");
@@ -74,20 +69,17 @@ export default function LogsPage() {
     const [reps, setReps] = useState("");
     const [duration, setDuration] = useState("");
 
-    // Data State
     const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([]);
     const [variations, setVariations] = useState<Variation[]>([]);
     const [cardioExercises, setCardioExercises] = useState<CardioExercise[]>([]);
     const [dailyLogs, setDailyLogs] = useState<LogEntry[]>([]);
 
-    // UI State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState<"muscle" | "variation" | "cardio" | null>(null);
     const [newItemName, setNewItemName] = useState("");
     const [popupMessage, setPopupMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
-    // Derived State
     const availableVariations = selectedMuscleGroupId
         ? variations.filter(v => v.muscle_group_id === Number(selectedMuscleGroupId))
         : [];
@@ -117,25 +109,70 @@ export default function LogsPage() {
         setIsModalOpen(true);
     };
 
-    const submitNewItem = () => {
-        // Placeholder: Real app would POST to backend to create new metadata
-        // For now we just add to local state to allow logging
+    const submitNewItem = async () => {
         if (!newItemName.trim()) return;
 
-        const fakeId = Date.now(); // Temporary ID
+        try {
+            const apiUrl = process.env.API_URL || '';
+            let newId: number | null = null;
+            let success = false;
 
-        if (modalType === "muscle") {
-            setMuscleGroups([...muscleGroups, { id: fakeId, name: newItemName }]);
-            setSelectedMuscleGroupId(fakeId);
-            setSelectedVariationId("");
-        } else if (modalType === "variation" && selectedMuscleGroupId) {
-            setVariations([...variations, { id: fakeId, muscle_group_id: Number(selectedMuscleGroupId), name: newItemName }]);
-            setSelectedVariationId(fakeId);
-        } else if (modalType === "cardio") {
-            setCardioExercises([...cardioExercises, { id: fakeId, name: newItemName }]);
-            setSelectedCardioId(fakeId);
+            if (modalType === "muscle") {
+                const res = await fetch(`${apiUrl}api/workouts/muscle_groups`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: newItemName }),
+                    credentials: "include"
+                });
+                const data = await res.json();
+                if (data.success && data.id) {
+                    newId = data.id;
+                    setMuscleGroups([...muscleGroups, { id: newId!, name: newItemName }]);
+                    setSelectedMuscleGroupId(newId!);
+                    setSelectedVariationId("");
+                    success = true;
+                }
+            } else if (modalType === "variation" && selectedMuscleGroupId) {
+                const res = await fetch(`${apiUrl}api/workouts/variations`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: newItemName, muscle_group_id: Number(selectedMuscleGroupId) }),
+                    credentials: "include"
+                });
+                const data = await res.json();
+                if (data.success && data.id) {
+                    newId = data.id;
+                    setVariations([...variations, { id: newId!, muscle_group_id: Number(selectedMuscleGroupId), name: newItemName }]);
+                    setSelectedVariationId(newId!);
+                    success = true;
+                }
+            } else if (modalType === "cardio") {
+                const res = await fetch(`${apiUrl}api/workouts/cardio_exercises`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: newItemName }),
+                    credentials: "include"
+                });
+                const data = await res.json();
+                if (data.success && data.id) {
+                    newId = data.id;
+                    setCardioExercises([...cardioExercises, { id: newId!, name: newItemName }]);
+                    setSelectedCardioId(newId!);
+                    success = true;
+                }
+            }
+
+            if (success) {
+                setPopupMessage("Created Successfully!");
+                setIsModalOpen(false);
+            } else {
+                setPopupMessage("Failed to create.");
+            }
+
+        } catch (e) {
+            console.error(e);
+            setPopupMessage("Error creating item.");
         }
-        setIsModalOpen(false);
     };
 
     const handleAddEntry = (e: React.FormEvent) => {
@@ -208,9 +245,6 @@ export default function LogsPage() {
         }
         setIsSaving(true);
         try {
-            // 1. Create Session
-            // Note: DB expects NaiveDateTime for start/end_time : "YYYY-MM-DDTHH:MM:SS"
-            // We construct it from date + time input
             const sessionStart = `${date}T${startTime}:00`;
             const sessionEnd = `${date}T${endTime}:00`;
             const apiUrl = process.env.API_URL || '';
@@ -233,9 +267,6 @@ export default function LogsPage() {
             const sessionData = await sessionRes.json();
             const sessionId = sessionData.id;
 
-            // 2. Add Sets
-            // We use Promise.all for speed, though sequential is safer for order if crucial (DB insert order might vary in parallel)
-            // But usually timestamp order matters more.
             const apiCalls = dailyLogs.map(log => {
                 if (log.type === 'strength') {
                     return fetch(`${apiUrl}api/workouts/addset`, {
@@ -287,7 +318,6 @@ export default function LogsPage() {
         setPopupMessage("Cleared.");
     };
 
-    // Grouping Logic for proper display
     const currentDayLogs = dailyLogs.filter(log => log.date === date);
 
     const groupedLogs = currentDayLogs.reduce((acc, log) => {
@@ -309,7 +339,6 @@ export default function LogsPage() {
 
             <div className="bg-white p-8 rounded-2xl shadow-[4px_0_20px_rgba(0,0,0,0.05)] border border-gray-100 relative">
                 <form onSubmit={handleAddEntry} className="space-y-6">
-                    {/* Session Details */}
                     <div>
                         <label className="text-sm font-bold text-gray-900 block mb-2">Workout Title</label>
                         <input
@@ -362,7 +391,6 @@ export default function LogsPage() {
 
                     <hr className="border-gray-100" />
 
-                    {/* Type Toggle */}
                     <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
                         <button type="button" onClick={() => setLogType('strength')} className={`flex-1 py-2 rounded-lg font-bold transition-all ${logType === 'strength' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Strength</button>
                         <button type="button" onClick={() => setLogType('cardio')} className={`flex-1 py-2 rounded-lg font-bold transition-all ${logType === 'cardio' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Cardio</button>
@@ -388,7 +416,7 @@ export default function LogsPage() {
                                     >
                                         <option value="" disabled>Select Muscle Group</option>
                                         {muscleGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                        <option value="CREATE_NEW" className="font-bold text-blue-600">+ Create new</option>
+                                        <option value="CREATE_NEW" className="font-bold text-blue-600 bg-blue-50">+ Create New Muscle Group</option>
                                     </select>
                                     <ChevronDownIcon className="w-5 h-5 text-gray-500 absolute right-3 top-3.5 pointer-events-none" />
                                 </div>
@@ -409,7 +437,7 @@ export default function LogsPage() {
                                     >
                                         <option value="" disabled>Select Exercise</option>
                                         {availableVariations.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                                        <option value="CREATE_NEW" className="font-bold text-blue-600">+ Create new</option>
+                                        <option value="CREATE_NEW" className="font-bold text-blue-600 bg-blue-50">+ Create New Exercise</option>
                                     </select>
                                     <ChevronDownIcon className="w-5 h-5 text-gray-500 absolute right-3 top-3.5 pointer-events-none" />
                                 </div>
@@ -440,14 +468,14 @@ export default function LogsPage() {
                                     >
                                         <option value="" disabled>Select Cardio</option>
                                         {cardioExercises.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                        <option value="CREATE_NEW" className="font-bold text-blue-600">+ Create new</option>
+                                        <option value="CREATE_NEW" className="font-bold text-blue-600 bg-blue-50">+ Create New Cardio</option>
                                     </select>
                                     <ChevronDownIcon className="w-5 h-5 text-gray-500 absolute right-3 top-3.5 pointer-events-none" />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-bold text-gray-900">Duration (mins)</label>
-                                <input type="number" value={duration} onChange={e => setDuration(e.target.value)} className="p-3 bg-gray-50 border border-gray-200 rounded-xl font-semibold" required min="1" />
+                                <input type="number" value={duration} onChange={e => setDuration(e.target.value)} className="p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl font-semibold" required min="1" />
                             </div>
                         </div>
                     )}
@@ -465,7 +493,6 @@ export default function LogsPage() {
                 </form>
             </div>
 
-            {/* Session Summary / Edit List */}
             {Object.keys(groupedLogs).length > 0 && (
                 <div className="border-t border-gray-200 pt-8">
                     <div className="flex items-center justify-between mb-6">
@@ -498,7 +525,6 @@ export default function LogsPage() {
                 </div>
             )}
 
-            {/* Sticky Action Bar */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-gray-200 z-50">
                 <div className="max-w-2xl mx-auto flex gap-4">
                     <button

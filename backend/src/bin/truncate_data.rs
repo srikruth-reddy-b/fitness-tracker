@@ -1,8 +1,5 @@
 use backend::db::database::DBOperations;
-use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use std::sync::Arc;
-use std::error::Error;
 use anyhow::{Result, bail};
 
 #[tokio::main]

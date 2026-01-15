@@ -1,17 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Squares2X2Icon,
   ClipboardDocumentListIcon,
   UserCircleIcon,
   ClockIcon,
-  ChartBarIcon // Added for visual brand consistency if needed, but not used in nav
+  ChartBarIcon,
+  ArrowRightOnRectangleIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // In a real app, calls /api/logout to clear HttpOnly cookie
+    router.push("/login");
+  };
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: Squares2X2Icon },
@@ -68,15 +75,13 @@ const Sidebar = () => {
       </nav>
 
       <div className="mt-auto pt-6 border-t border-gray-100">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-            <UserCircleIcon className="w-6 h-6" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-gray-900">User</span>
-            <span className="text-xs font-medium text-gray-500">Free Plan</span>
-          </div>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-500 font-medium hover:bg-red-50 hover:text-red-600 w-full text-left group"
+        >
+          <ArrowRightOnRectangleIcon className="w-6 h-6 stroke-[1.5px] group-hover:scale-105 transition-transform" />
+          Logout
+        </button>
       </div>
     </aside>
   );

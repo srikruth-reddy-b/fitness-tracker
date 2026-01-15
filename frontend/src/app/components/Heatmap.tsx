@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import DayDetailsModal from "./DayDetailsModal";
+import { useAuthFetch } from "../hooks/useAuthFetch";
 
 /* ---------------- Types ---------------- */
 
 type HeatLevel = 0 | 1 | 2 | 3;
-type DayData = { date: Date; level: HeatLevel };
+type DayData = { date: Date; level: HeatLevel; summary?: string };
 
 /* ---------------- Constants ---------------- */
 
@@ -22,7 +24,7 @@ const PREVIEW_COLUMNS = 3;
 
 /* ---------------- Helpers ---------------- */
 
-async function getMonthData(year: number, month: number) {
+async function getMonthData(year: number, month: number, authFetch: any) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
 
@@ -36,10 +38,8 @@ async function getMonthData(year: number, month: number) {
   }));
 
   try {
-    // API uses 1-based month (1-12), JS uses 0-based (0-11)
     const apiMonth = month + 1;
-
-    const response = await fetch(`${process.env.API_URL}api/monthlylevels`, {
+    const response = await authFetch(`${process.env.API_URL}api/monthlylevels`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,22 +49,15 @@ async function getMonthData(year: number, month: number) {
     });
 
     if (response.ok) {
-    //   const sessions = await response.json();
       const workoutLevels = await response.json();
-
-      // Create a map of date string to level for easier lookup
-      // or simply iterate since we know the structure
-      // Backend returns { date: "YYYY-MM-DD", level: number }
-      const levelsMap: Record<string, number> = {};
+      const levelsMap: Record<string, { level: number, summary?: string }> = {};
 
       workoutLevels.forEach((item: any) => {
         if (item.date && typeof item.level === 'number') {
-          // item.date is "YYYY-MM-DD"
-          levelsMap[item.date] = item.level;
+          levelsMap[item.date] = { level: item.level, summary: item.summary };
         }
       });
 
-      // Update days with levels from map
       days.forEach(day => {
         const y = day.date.getFullYear();
         const m = String(day.date.getMonth() + 1).padStart(2, '0');
@@ -72,7 +65,8 @@ async function getMonthData(year: number, month: number) {
         const dateKey = `${y}-${m}-${d}`;
 
         if (levelsMap[dateKey] !== undefined) {
-          day.level = levelsMap[dateKey] as HeatLevel;
+          day.level = levelsMap[dateKey].level as HeatLevel;
+          day.summary = levelsMap[dateKey].summary;
         }
       });
     }
@@ -92,6 +86,7 @@ type MonthGridProps = {
   isActive?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  onDayClick?: (day: DayData) => void;
   className?: string;
 };
 
@@ -102,15 +97,17 @@ function MonthGrid({
   isActive = false,
   disabled = false,
   onClick,
+  onDayClick,
   className = "",
 }: MonthGridProps) {
   const [data, setData] = useState<{ startWeekday: number; days: DayData[] } | null>(null);
+  const authFetch = useAuthFetch();
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchData = async () => {
-      const result = await getMonthData(year, month);
+      const result = await getMonthData(year, month, authFetch);
       if (isMounted) setData(result);
     };
 
@@ -119,12 +116,11 @@ function MonthGrid({
     return () => { isMounted = false; };
   }, [year, month]);
 
-  // Updated to Blue Theme
   const colorMap: Record<HeatLevel, string> = {
     0: "bg-gray-100",
-    1: "bg-gradient-to-br from-red-100 to-red-300",
-    2: "bg-gradient-to-br from-red-300 to-red-500",
-    3: "bg-gradient-to-br from-red-500 to-red-700",
+    1: "bg-gradient-to-br from-green-100 to-green-300",
+    2: "bg-gradient-to-br from-green-300 to-green-500",
+    3: "bg-gradient-to-br from-green-500 to-green-700",
   };
 
   const columnWidth = FULL_WIDTH / 7;
@@ -138,7 +134,6 @@ function MonthGrid({
         ? "text-right pr-2"
         : "text-center";
 
-  // Default skeleton/loading state if data not yet loaded
   const startWeekday = data?.startWeekday || 0;
   const days = data?.days || [];
 
@@ -196,7 +191,8 @@ function MonthGrid({
             days.map((day) => (
               <div
                 key={day.date.toISOString()}
-                className={`aspect-square rounded-md ${colorMap[day.level]} flex items-center justify-center transition-all hover:scale-105 hover:shadow-sm`}
+                onClick={() => onDayClick && onDayClick(day)}
+                className={`aspect-square rounded-md ${colorMap[day.level]} flex items-center justify-center transition-all hover:scale-105 hover:shadow-sm group relative cursor-pointer`}
               >
                 <span
                   className={
@@ -207,14 +203,33 @@ function MonthGrid({
                 >
                   {day.date.getDate()}
                 </span>
+
+                {/* Custom Premium Tooltip */}
+                {day.summary && !clip && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 hidden group-hover:block z-[60] pointer-events-none">
+                    <div className="bg-gray-900/95 backdrop-blur-md text-white px-3 py-2 rounded-xl shadow-2xl border border-white/10 min-w-[140px]">
+                      {/* Header */}
+                      <div className="text-[10px] font-bold text-gray-400 border-b border-gray-700 pb-1 mb-1 uppercase tracking-wider">
+                        {day.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </div>
+
+                      {/* Workout List */}
+                      <div className="flex flex-col gap-0.5">
+                        {day.summary.split(', ').map((item, idx) => (
+                          <span key={idx} className="text-xs font-medium whitespace-nowrap">
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Little arrow */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-gray-900/95"></div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           ) : (
-            // Simple Loading Skeleton if needed, or just show empty dates until loaded
-            // For now we initialized 'days' in getMonthData synchronously partly so we might want to return that structure immediately? 
-            // Actually I made getMonthData async entirely.
-            // So 'days' is empty array initially.
-            // Let's render empty placeholders if loading
             Array.from({ length: new Date(year, month + 1, 0).getDate() }).map((_, i) => (
               <div key={i} className="aspect-square bg-gray-50 rounded-md animate-pulse"></div>
             ))
@@ -235,6 +250,15 @@ export default function HeatmapCard() {
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
   const [direction, setDirection] = useState<"prev" | "next" | null>(null);
+
+  // Modal State
+  const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleDayClick = (day: DayData) => {
+    setSelectedDay(day);
+    setIsModalOpen(true);
+  };
 
   const isFutureMonth = (y: number, m: number) =>
     y > currentYear || (y === currentYear && m > currentMonth);
@@ -319,7 +343,12 @@ export default function HeatmapCard() {
           }}
         />
 
-        <MonthGrid year={year} month={month} isActive />
+        <MonthGrid
+          year={year}
+          month={month}
+          isActive
+          onDayClick={handleDayClick}
+        />
 
         <MonthGrid
           year={next.y}
@@ -338,7 +367,12 @@ export default function HeatmapCard() {
           }
         />
       </div>
+
+      <DayDetailsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        date={selectedDay?.date || null}
+      />
     </div>
   );
 }
-

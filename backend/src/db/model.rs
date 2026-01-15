@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::schema::fittrack::{users, muscle_groups, variations, sets, cardio_exercises, cardio_logs, workout_sessions};
@@ -48,6 +49,13 @@ pub struct MuscleGroup {
     pub user_id: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = muscle_groups)]
+pub struct NewMuscleGroup<'a> {
+    pub name: &'a str,
+    pub user_id: i32,
+}
+
 #[derive(Debug, Serialize, Deserialize, Queryable, Identifiable, Associations)]
 #[diesel(belongs_to(MuscleGroup))]
 #[diesel(table_name = variations)]
@@ -57,6 +65,15 @@ pub struct Variation {
     pub name: String,
     pub description: Option<String>,
     pub user_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = variations)]
+pub struct NewVariation<'a> {
+    pub muscle_group_id: i32,
+    pub name: &'a str,
+    pub user_id: i32,
+    pub description: Option<&'a str>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Queryable, Identifiable, Associations,Selectable)]
@@ -87,6 +104,8 @@ pub struct NewWorkoutSession {
 #[diesel(table_name = workout_sessions)]
 pub struct UpdateWorkoutSession {
     pub title: Option<String>,
+    pub date: Option<NaiveDate>,
+    pub start_time: Option<chrono::NaiveDateTime>,
     pub end_time: Option<chrono::NaiveDateTime>,
     pub notes: Option<String>,
 }
@@ -130,6 +149,13 @@ pub struct CardioExercise {
     pub id: i32,
     pub name: String,
     pub user_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = cardio_exercises)]
+pub struct NewCardioExercise<'a> {
+    pub name: &'a str,
+    pub user_id: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Queryable, Identifiable, Associations)]

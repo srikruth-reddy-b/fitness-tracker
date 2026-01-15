@@ -19,53 +19,53 @@ type WeeklyRow = {
     [exercise: string]: number | string;
 };
 
-type ExerciseName = "Bench Press" | "Squat" | "Deadlift";
-
-const EXERCISE_COLORS: Record<ExerciseName, string> = {
-    "Bench Press": "#111827", // near-black
-    Squat: "#2563eb",        // blue
-    Deadlift: "#dc2626",     // red
-};
-
 function formatDateInput(date: Date) {
     return date.toISOString().split("T")[0];
 }
-
-/* ---------------- Base Volumes ---------------- */
-
-const EXERCISES: Record<ExerciseName, number> = {
-    "Bench Press": 4200,
-    Squat: 6000,
-    Deadlift: 5500,
-};
 
 /* ---------------- Component ---------------- */
 
 export default function ProgressPerformanceCard() {
     const [isOpen, setIsOpen] = useState(false);
-    /* Order matters: last = active / foreground */
-    const [selectedExercises, setSelectedExercises] =
-        useState<ExerciseName[]>([]);
+
+    const [availableVariations, setAvailableVariations] = useState<{ id: number, name: string }[]>([]);
+    const [selectedVariationIds, setSelectedVariationIds] = useState<number[]>([]);
 
     const [toDate, setToDate] = useState(new Date());
     const [fromDate, setFromDate] = useState(() => {
         const d = new Date();
-        d.setDate(d.getDate() - 7 * 7); // default 8 weeks
+        d.setDate(d.getDate() - 7 * 4); // default 8 weeks
         return d;
     });
 
     /* ---------- SHARED chart data ---------- */
     const [chartData, setChartData] = useState<WeeklyRow[]>([]);
 
-    const EXERCISE_IDS: Record<ExerciseName, number> = {
-        "Bench Press": 1,
-        "Squat": 2,
-        "Deadlift": 3,
-    };
+    // Color Palette for dynamic assignment
+    const COLORS = ["#111827", "#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed"];
+
+    useEffect(() => {
+        const fetchVariations = async () => {
+            try {
+                const res = await fetch(`${process.env.API_URL}api/workouts/variations`, { credentials: "include" });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAvailableVariations(data);
+                    if (data.length > 0) {
+                        const defaults = data.slice(0, 3).map((v: any) => v.id);
+                        setSelectedVariationIds(defaults);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load variations", e);
+            }
+        };
+        fetchVariations();
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
-            if (selectedExercises.length === 0) {
+            if (selectedVariationIds.length === 0) {
                 setChartData([]);
                 return;
             }
@@ -74,14 +74,12 @@ export default function ProgressPerformanceCard() {
             const toStr = formatDateInput(toDate);
 
             const dataMap: Record<string, WeeklyRow> = {};
-            // We'll collect all seen weeks to ensure correct order/union
-            // Since backend returns sorted full ranges, the first response determines the structure ideally.
-            // But to be safe with Promises, we can collect all.
 
             try {
-                // Fetch data for all selected exercises in parallel
-                const responses = await Promise.all(selectedExercises.map(async (ex) => {
-                    const id = EXERCISE_IDS[ex];
+                const responses = await Promise.all(selectedVariationIds.map(async (id) => {
+                    const variation = availableVariations.find(v => v.id === id);
+                    if (!variation) return { name: "Unknown", res: null };
+
                     const res = await fetch(`${process.env.API_URL}api/performancemetrics`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -92,38 +90,33 @@ export default function ProgressPerformanceCard() {
                         }),
                         credentials: 'include'
                     });
-                    return { ex, res };
+                    return { name: variation.name, res };
                 }));
 
                 let masterWeeks: string[] = [];
 
-                for (const { ex, res } of responses) {
-                    if (res.ok) {
+                for (const { name, res } of responses) {
+                    if (res && res.ok) {
                         const metrics: { week: string; volume: number }[] = await res.json();
 
-                        // If this is the first successful response, set the master weeks list
-                        // (Backend guarantees full range sorted)
-                        if (masterWeeks.length === 0 && metrics.length > 0) {
-                            masterWeeks = metrics.map(m => m.week);
-                            masterWeeks.forEach(w => {
-                                dataMap[w] = { week: w };
-                            });
-                        }
+                        metrics.forEach(m => {
+                            if (!dataMap[m.week]) {
+                                dataMap[m.week] = { week: m.week };
+                                if (!masterWeeks.includes(m.week)) masterWeeks.push(m.week);
+                            }
+                        });
 
                         metrics.forEach((metric) => {
-                            // Ensure row exists (in case requests had slightly different ranges? Shouldn't happen)
-                            if (!dataMap[metric.week]) {
-                                dataMap[metric.week] = { week: metric.week };
-                                // If we found a new week not in master (unlikely with same dates), add to master?
-                                // For now assume backend consistency.
-                            }
-                            dataMap[metric.week][ex] = metric.volume;
+                            dataMap[metric.week][name] = metric.volume;
                         });
                     }
                 }
 
-                // Use masterWeeks to ensure consistent sorted order
-                const finalData = masterWeeks.map(w => dataMap[w]);
+                const finalData = Object.values(dataMap);
+                finalData.sort((a, b) => {
+                    return 0;
+                });
+
                 setChartData(finalData);
 
             } catch (error) {
@@ -132,13 +125,13 @@ export default function ProgressPerformanceCard() {
         };
 
         fetchData();
-    }, [selectedExercises, fromDate, toDate]);
+    }, [selectedVariationIds, fromDate, toDate, availableVariations]);
 
     /* ---------- Bring clicked line to front ---------- */
-    function bringToFront(ex: ExerciseName) {
-        setSelectedExercises((prev) => [
-            ...prev.filter((e) => e !== ex),
-            ex,
+    function bringToFront(id: number) {
+        setSelectedVariationIds((prev) => [
+            ...prev.filter((e) => e !== id),
+            id,
         ]);
     }
 
@@ -159,19 +152,18 @@ export default function ProgressPerformanceCard() {
                         onClick={() => setIsOpen((v) => !v)}
                         className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all hover:bg-gray-100"
                     >
-                        {selectedExercises.length > 0 ? `${selectedExercises.length} Selected` : "Select exercises"}
+                        {selectedVariationIds.length > 0 ? `${selectedVariationIds.length} Selected` : "Select exercises"}
                         <ChevronDownIcon className="w-4 h-4 text-gray-500" />
                     </button>
 
                     {isOpen && (
-                        <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-gray-100 bg-white shadow-xl animate-fadeIn p-2 space-y-1">
-                            {Object.keys(EXERCISES).map((ex) => {
-                                const exercise = ex as ExerciseName;
-                                const checked = selectedExercises.includes(exercise);
+                        <div className="absolute right-0 z-20 mt-2 w-56 max-h-64 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl animate-fadeIn p-2 space-y-1">
+                            {availableVariations.map((v) => {
+                                const checked = selectedVariationIds.includes(v.id);
 
                                 return (
                                     <label
-                                        key={exercise}
+                                        key={v.id}
                                         className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-lg transition-colors select-none"
                                     >
                                         <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'}`}>
@@ -181,22 +173,14 @@ export default function ProgressPerformanceCard() {
                                             type="checkbox"
                                             checked={checked}
                                             onChange={() => {
-                                                setSelectedExercises((prev) => {
-                                                    // Prevent removing last exercise
+                                                setSelectedVariationIds((prev) => {
                                                     if (checked && prev.length === 1) return prev;
-
-                                                    if (checked) {
-                                                        // remove
-                                                        return prev.filter((e) => e !== exercise);
-                                                    } else {
-                                                        // add (to top / foreground)
-                                                        return [...prev, exercise];
-                                                    }
+                                                    return checked ? prev.filter(id => id !== v.id) : [...prev, v.id];
                                                 });
                                             }}
                                             className="hidden"
                                         />
-                                        {exercise}
+                                        {v.name}
                                     </label>
                                 );
                             })}
@@ -230,7 +214,7 @@ export default function ProgressPerformanceCard() {
             </div>
 
             {/* Chart */}
-            {selectedExercises.length === 0 ? (
+            {selectedVariationIds.length === 0 ? (
                 <div className="flex h-[350px] items-center justify-center text-gray-400 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
                     <div className="text-center">
                         <p className="font-semibold">Select one or more exercises</p>
@@ -249,6 +233,31 @@ export default function ProgressPerformanceCard() {
                                 tickLine={false}
                                 axisLine={false}
                                 dy={10}
+                                tickFormatter={(value) => {
+                                    const parts = value.split('-');
+                                    if (parts.length >= 2) {
+                                        const monthsPart = parts[0];
+                                        const weekPart = parts[1];
+
+                                        if (monthsPart.includes('/')) {
+                                            const [m1, m2] = monthsPart.split('/');
+                                            const date1 = new Date(); date1.setMonth(parseInt(m1) - 1);
+                                            const name1 = date1.toLocaleString('default', { month: 'short' });
+
+                                            const date2 = new Date(); date2.setMonth(parseInt(m2) - 1);
+                                            const name2 = date2.toLocaleString('default', { month: 'short' });
+
+                                            return `${name1}/${name2}-${weekPart.toUpperCase()}`;
+                                        } else {
+                                            const monthIndex = parseInt(monthsPart, 10) - 1;
+                                            const date = new Date();
+                                            date.setMonth(monthIndex);
+                                            const monthName = date.toLocaleString('default', { month: 'short' });
+                                            return `${monthName}-${weekPart.toUpperCase()}`;
+                                        }
+                                    }
+                                    return value;
+                                }}
                             />
                             <YAxis
                                 stroke="#9ca3af"
@@ -261,23 +270,25 @@ export default function ProgressPerformanceCard() {
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                             />
 
-                            {selectedExercises.map((ex, index) => {
-                                const isActive =
-                                    index === selectedExercises.length - 1;
+                            {selectedVariationIds.map((id, index) => {
+                                const variation = availableVariations.find(v => v.id === id);
+                                const name = variation ? variation.name : "Unknown";
+                                const isActive = index === selectedVariationIds.length - 1;
+                                const color = COLORS[index % COLORS.length];
 
                                 return (
                                     <Line
-                                        key={ex}
+                                        key={id}
                                         type="monotone"
-                                        dataKey={ex}
-                                        stroke={EXERCISE_COLORS[ex]}
+                                        dataKey={name}
+                                        stroke={color}
                                         strokeWidth={isActive ? 3 : 2}
                                         opacity={isActive ? 1 : 0.6}
                                         dot={isActive ? { r: 4, strokeWidth: 2 } : false}
                                         activeDot={isActive ? { r: 6, strokeWidth: 2 } : false}
                                         isAnimationActive={true}
                                         animationDuration={500}
-                                        onMouseDown={() => bringToFront(ex)}
+                                        onMouseDown={() => bringToFront(id)}
                                         style={{ cursor: "pointer", pointerEvents: "all" }}
                                     />
                                 );

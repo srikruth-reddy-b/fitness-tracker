@@ -1,12 +1,11 @@
-use std::{collections::HashMap, os::darwin, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use anyhow::{Result, bail};
 use chrono::{Datelike, NaiveDate};
-use log::{info, warn};
+use log::{debug, error, info, warn};
 use serde::Serialize;
-use crate::db::{model::{WorkoutSession, WorkoutSet}, user, workouts::WorkoutDB};
+use crate::db::{model::User, user::UserDB, workouts::WorkoutDB};
 
 
-const LEVEL_0:i64 = 0;
 const LEVEL_1:i64 = 30;
 const LEVEL_2:i64 = 60;
 const LEVEL_3:i64 = 90;
@@ -14,7 +13,8 @@ const LEVEL_3:i64 = 90;
 #[derive(Debug,Serialize)]
 pub struct WorkoutLevels{
     pub date: NaiveDate,
-    pub level: u8
+    pub level: u8,
+    pub summary: Option<String>
 }
 
 #[derive(Debug, Serialize)]
@@ -31,12 +31,14 @@ pub struct MuscleGroupVolume {
 
 pub struct GetService{
     pub workout: Arc<WorkoutDB>,
+    pub user: Arc<UserDB>
 }
 
 impl GetService{
-    pub fn new(workout: Arc<WorkoutDB>) -> Self{
+    pub fn new(workout: Arc<WorkoutDB>, user: Arc<UserDB>) -> Self{
         GetService { 
-            workout 
+            workout,
+            user
         }
     }
 
@@ -49,26 +51,42 @@ impl GetService{
         };
 
         let mut workout_durations: HashMap<NaiveDate, i64> = HashMap::new();
+        let mut workout_summaries: HashMap<NaiveDate, Vec<String>> = HashMap::new();
+
         for workout in workout_details.iter(){
+            let duration = (workout.end_time - workout.start_time).num_minutes();
             workout_durations.entry(workout.date)
-                .and_modify(|duration| *duration += (workout.end_time - workout.start_time).num_minutes())
-                .or_insert_with(|| (workout.end_time - workout.start_time).num_minutes());
+                .and_modify(|d| *d += duration)
+                .or_insert(duration);
+            
+            let title = workout.title.clone().unwrap_or_else(|| "Workout".to_string());
+            let summary_part = format!("{} ({}m)", title, duration);
+            
+            workout_summaries.entry(workout.date)
+                .or_default()
+                .push(summary_part);
         }
+
         let mut workout_levels: Vec<WorkoutLevels> = Vec::new();
-        for workout_duration in workout_durations.iter(){
-            let level = match workout_duration.1{
+        for (date, duration) in workout_durations.iter(){
+            let level = match duration{
                 d if *d >= LEVEL_3 => 3,
                 d if *d >= LEVEL_2 => 2,
                 d if *d >= LEVEL_1 => 1,
                 _ => 0,
             };
+            
+            let summary = workout_summaries.get(date)
+                .map(|parts| parts.join(", "));
+
             workout_levels.push(WorkoutLevels{
-                date: *workout_duration.0,
-                level
+                date: *date,
+                level,
+                summary
             });
         }
-
-        println!("Workout details retrieved: {:?}", workout_levels);
+        info!("Workout levels fetched for user_id: {}", user_id);
+        debug!("Workout details retrieved: {:?}", workout_levels);
         Ok(workout_levels)
     }
 
@@ -109,7 +127,8 @@ impl GetService{
             })
             .collect::<Vec<PerformanceMetrics>>();
 
-        println!("Performance data: {:?}", performance_metrics);
+        info!("Performance details fetched for user_id: {}, variation_id: {}", user_id, variation_id);
+        debug!("Performance data: {:?}", performance_metrics);
         Ok(performance_metrics)
     }
 
@@ -145,26 +164,62 @@ impl GetService{
             })
             .collect();
         
-        info!("Muscle group volume summary: {:?}", results);
+        info!("Muscle group volume summary fetched for user_id: {}", user_id);
+        debug!("Muscle group volume summary: {:?}", results);
         Ok(results)
     }
 
+    pub async fn get_history(&self, user_id: i32, limit: i64, start_date: Option<chrono::NaiveDate>, end_date: Option<chrono::NaiveDate>) -> anyhow::Result<Vec<crate::db::model::WorkoutSession>> {
+        info!("Fetching workout history for user_id: {}", user_id);
+        self.workout.get_history(user_id, limit, start_date, end_date).await
+    }
 
+    pub async fn get_session_details(&self, user_id: i32, session_id: i32) -> anyhow::Result<(crate::db::model::WorkoutSession, Vec<crate::db::model::WorkoutSet>, Vec<crate::db::model::CardioLog>)> {
+        info!("Fetching session details for user_id: {}, session_id: {}", user_id, session_id);
+        self.workout.get_session_details(user_id, session_id).await
+    }
 
+    pub async fn get_user_info(&self, user_id: i32) -> anyhow::Result<User,>{
+        info!("Fetching user info for user_id: {}", user_id);
+        match self.user.get_user_by_id(user_id).await{
+            Ok(Some(user)) => Ok(user),
+            Ok(None) => Err(anyhow::anyhow!("User not found")),
+            Err(err) => {
+                error!("Error fetching user info: {}", err);
+                Err(anyhow::anyhow!("Error fetching user info"))
+            }
+        }
+    }
+    
     pub fn get_week_label(date: NaiveDate) -> String{
-        let week = date.iso_week().week();
-        format!("{}-W{}", date.month(), week)
+        let days_from_monday = date.weekday().num_days_from_monday();
+        let monday = date - chrono::Duration::days(days_from_monday as i64);
+        let sunday = monday + chrono::Duration::days(6);
+        
+        // Calculate week number relative to the Monday's month
+        let day = monday.day();
+        // A simple week of month Calc: (day-1)/7 + 1
+        let week_of_month = (day - 1) / 7 + 1;
+
+        if monday.month() != sunday.month() {
+            format!("{}/{}-W{}", monday.month(), sunday.month(), week_of_month)
+        } else {
+            format!("{}-W{}", monday.month(), week_of_month)
+        }
     }
 
     pub async fn get_muscle_groups(&self,user_id: i32) -> Result<Vec<crate::db::model::MuscleGroup>> {
+        debug!("Fetching muscle groups for user_id: {}", user_id);
         self.workout.get_all_muscle_groups(user_id).await
     }
 
     pub async fn get_variations(&self,user_id: i32) -> Result<Vec<crate::db::model::Variation>> {
+        debug!("Fetching variations for user_id: {}", user_id);
         self.workout.get_all_variations(user_id).await
     }
 
     pub async fn get_cardio_exercises(&self,user_id: i32) -> Result<Vec<crate::db::model::CardioExercise>> {
+        debug!("Fetching cardio exercises for user_id: {}", user_id);
         self.workout.get_all_cardio_exercises(user_id).await
     }
 }

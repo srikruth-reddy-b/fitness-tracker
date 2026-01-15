@@ -1,18 +1,7 @@
-use std::{sync::Arc, time};
 use actix_web::{cookie::Cookie, web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
-use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, Header, EncodingKey};
-use serde_json::json;
 use ::time::Duration as TimeDuration;
-use crate::{api::middleware::AuthenticatedUser, db::model::UpdateUser, services::{auth_service::{AuthResponse, AuthService}, jwt_service::JwtService}};
-
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct Claims {
-//     pub sub: String, 
-//     iat: usize,    
-//     exp: usize,    
-// }
+use crate::{api::middleware::AuthenticatedUser,services::{auth_service::{AuthService}, get_service::GetService, jwt_service::JwtService}};
 
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
@@ -57,14 +46,10 @@ pub struct UpdateUserInfo{
 }
 
 #[derive(Clone)]
-pub struct Login{
-    pub auth_service: Arc<AuthService>
-}
+pub struct Login{}
 impl Login{
-    pub fn new(auth_service: Arc<AuthService>) -> Self{
-        Login{
-            auth_service
-        }
+    pub fn new() -> Self{
+        Login{}
     }
 
     pub async fn register_handler(
@@ -153,10 +138,10 @@ impl Login{
         HttpResponse::Ok().json(result)
     }
 
-    pub async fn user_info_handler(auth_service: web::Data<AuthService>,
+    pub async fn user_info_handler(get_service: web::Data<GetService>,
         user: AuthenticatedUser
     ) -> impl Responder{
-        match auth_service.get_user_info(user.id).await{
+        match get_service.get_user_info(user.id).await{
             Ok(user_info) => HttpResponse::Ok().json(user_info),
             Err(e) => HttpResponse::InternalServerError().body(format!("Error: {}", e)),
         }

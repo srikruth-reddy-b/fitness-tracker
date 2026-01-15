@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "../../components/Popup";
 import { UserCircleIcon, PencilIcon, CheckIcon, XMarkIcon, KeyIcon } from "@heroicons/react/24/outline";
+import { useAuthFetch } from "../../hooks/useAuthFetch";
 
 export default function ProfilePage() {
-    const router = useRouter();
+    const router = useRouter(); // Keep for password reset nav
+    const authFetch = useAuthFetch();
     const [isEditing, setIsEditing] = useState(false);
     const [popupMessage, setPopupMessage] = useState("");
     const [isLoading, setIsLoading] = useState(true);
@@ -21,14 +23,12 @@ export default function ProfilePage() {
         dob: "2000-01-01",
     });
 
-    // Backup for Cancel
     const [originalData, setOriginalData] = useState(formData);
 
-    // Fetch user info on mount
     useEffect(() => {
         const fetchUserInfo = async () => {
             try {
-                const userinfo_result = await fetch(`${process.env.API_URL}api/userinfo`, {
+                const userinfo_result = await authFetch(`${process.env.API_URL}api/userinfo`, {
                     method: "GET",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
@@ -36,7 +36,6 @@ export default function ProfilePage() {
                 if (!userinfo_result.ok) throw new Error("Failed to fetch user info");
                 const userinfo = await userinfo_result.json();
 
-                // Format Date
                 let joinedDate = "Dec 2024";
                 if (userinfo.created_at) {
                     const date = new Date(userinfo.created_at);
@@ -67,15 +66,13 @@ export default function ProfilePage() {
     }, []);
 
     const handleSave = async () => {
-        // Mock API Call
 
         try {
-            const update_result = await fetch(`${process.env.API_URL}api/updateuser`, {
+            const update_result = await authFetch(`${process.env.API_URL}api/updateuser`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     fullname: formData.fullname,
-                    // Password not updated here anymore
                     email: formData.email,
                     weight: parseFloat(formData.weight),
                     height: parseFloat(formData.height),
@@ -85,7 +82,6 @@ export default function ProfilePage() {
             });
 
             if (!update_result.ok) {
-                // Try to read error message from backend
                 const text = await update_result.text();
                 console.error("Update failed status:", update_result.status);
                 console.error("Update failed body:", text);
@@ -106,7 +102,6 @@ export default function ProfilePage() {
             return;
         }
         console.log("Saving profile:", formData);
-        // Simulate generic loading/saving
         setOriginalData(formData);
         setIsEditing(false);
         setPopupMessage("Profile updated successfully!");
@@ -146,7 +141,6 @@ export default function ProfilePage() {
             <div className="bg-white p-8 rounded-2xl shadow-[4px_0_20px_rgba(0,0,0,0.05)] border border-gray-100 relative">
                 <div className="space-y-8">
 
-                    {/* Avatar / Identity Section */}
                     <div className="flex items-center gap-6 pb-8 border-b border-gray-100">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
                             <UserCircleIcon className="w-12 h-12" />
@@ -158,7 +152,6 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-6">
-                        {/* Username */}
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-bold text-gray-900">Full name</label>
                             <input
@@ -173,7 +166,6 @@ export default function ProfilePage() {
                             />
                         </div>
 
-                        {/* Email */}
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-bold text-gray-900">Email</label>
                             <input
@@ -188,7 +180,6 @@ export default function ProfilePage() {
                             />
                         </div>
 
-                        {/* Password / Actions */}
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-bold text-gray-900">Password</label>
                             <button
@@ -201,7 +192,6 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-6">
-                            {/* Weight */}
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-bold text-gray-900">Weight (kg)</label>
                                 <input
@@ -216,7 +206,6 @@ export default function ProfilePage() {
                                 />
                             </div>
 
-                            {/* Height */}
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-bold text-gray-900">Height (cm)</label>
                                 <input
@@ -232,7 +221,6 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        {/* DOB */}
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-bold text-gray-900">Date of Birth</label>
                             <input
@@ -248,7 +236,6 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
-                    {/* Edit Actions */}
                     {isEditing && (
                         <div className="flex gap-3 pt-6 border-t border-gray-100 animate-fadeIn">
                             <button

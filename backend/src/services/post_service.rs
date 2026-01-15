@@ -1,7 +1,9 @@
 use std::sync::Arc;
-use anyhow::bail;
+use log::{error, info};
 use serde::Serialize;
-use crate::{api::workouts::{ CardioSet, StrengthSet, WorkoutSession}, db::{model::{NewCardioLog, NewWorkoutSession, NewWorkoutSet, UpdateCardioLog, UpdateWorkoutSession, UpdateWorkoutSet}, workouts::WorkoutDB}};
+use crate::{api::workouts::{ CardioSet, CreateCardioExerciseRequest, CreateMuscleGroupRequest, CreateVariationRequest, StrengthSet, WorkoutSession}, 
+            db::{logger::LoggerDB, 
+                model::{NewCardioExercise, NewCardioLog, NewMuscleGroup, NewVariation, NewWorkoutSession, NewWorkoutSet}}};
 
 #[derive(Debug, Serialize)]
 pub struct PostResponse{
@@ -12,13 +14,13 @@ pub struct PostResponse{
 }
 
 pub struct PostService{
-    workout: Arc<WorkoutDB>
+    logger: Arc<LoggerDB>
 }
 
 impl PostService{
-    pub fn new(workout: Arc<WorkoutDB>) -> Self{
+    pub fn new(logger: Arc<LoggerDB>) -> Self{
         PostService{
-            workout
+            logger
         }
     }
 
@@ -31,9 +33,10 @@ impl PostService{
             start_time: session_request.start_time,
             end_time: session_request.end_time,
         };
-        match self.workout.add_workout_session(workout_session).await{
+        match self.logger.add_workout_session(workout_session).await{
             Ok(session) => {
-                 PostResponse { 
+                info!("Workout session added with ID: {}", session.id);
+                PostResponse { 
                     user_id: session.user_id,
                     id: Some(session.id), 
                     success: true, 
@@ -41,8 +44,9 @@ impl PostService{
                 }
             },
             Err(err) => {
-                 PostResponse{
-                    user_id: 1, // Default or check how to get user_id if failure early? session_request.user_id is available
+                error!("Error adding workout session: {}", err);
+                PostResponse{
+                    user_id: 1, 
                     id: None,
                     success: false,
                     message: format!("{}",err)
@@ -60,7 +64,8 @@ impl PostService{
             reps: session_request.reps,
             performed_on: session_request.performed_on
         };
-        if let Err(err) = self.workout.add_workout_set(workout_session).await{
+        if let Err(err) = self.logger.add_workout_set(workout_session).await{
+            info!("Error adding workout set: {}", err);
             return PostResponse{
                 user_id: session_request.user_id,
                 id: None,
@@ -69,7 +74,8 @@ impl PostService{
             }
         };
 
-        PostResponse { 
+        info!("Workout set added for user ID: {}", session_request.user_id);
+        PostResponse {
             user_id: session_request.user_id, 
             id: None,
             success: true, 
@@ -85,7 +91,8 @@ impl PostService{
             duration_minutes: session_request.duration
             
         };
-        if let Err(err) = self.workout.add_workout_cardio(workout_session).await{
+        if let Err(err) = self.logger.add_workout_cardio(workout_session).await{
+            error!("Error adding cardio log: {}", err);
             return PostResponse{
                 user_id: session_request.user_id,
                 id: None,
@@ -94,6 +101,7 @@ impl PostService{
             };
         }
 
+        info!("Cardio log added for user ID: {}", session_request.user_id);
         PostResponse { 
             user_id: session_request.user_id, 
             id: None,
@@ -102,83 +110,86 @@ impl PostService{
         }
     }
 
-    pub async fn update_workout_session(&self, user_id: i32, session_id: i32, title: Option<String>, end_time: Option<chrono::NaiveDateTime>, notes: Option<String>) -> PostResponse {
-        let update_data = UpdateWorkoutSession { title, end_time, notes };
-        match self.workout.update_workout_session(user_id, session_id, update_data).await {
-            Ok(session) => PostResponse {
-                user_id,
-                id: Some(session.id),
-                success: true,
-                message: "Session Updated".to_string()
+    pub async fn add_muscle_group(&self, user_id: i32, request: CreateMuscleGroupRequest) -> PostResponse {
+        let new_mg = NewMuscleGroup {
+            name: &request.name,
+            user_id,
+        };
+        match self.logger.add_muscle_group(new_mg).await {
+            Ok(mg) => {
+                info!("Adding muscle group for user_id: {}", user_id);
+                PostResponse {
+                    user_id,
+                    id: Some(mg.id),
+                    success: true,
+                    message: "Muscle Group Added".to_string()
+                }
             },
-            Err(err) => PostResponse {
-                user_id, id: None, success: false, message: format!("{}", err)
+            Err(err) => {
+                error!("Error adding muscle group for user_id {}: {}", user_id, err);
+                PostResponse {
+                    user_id,
+                    id: None,
+                    success: false,
+                    message: format!("{}", err)
+                }
             }
         }
     }
 
-    pub async fn delete_workout_session(&self, user_id: i32, session_id: i32) -> PostResponse {
-        match self.workout.delete_workout_session(user_id, session_id).await {
-            Ok(_) => PostResponse {
-                user_id, id: Some(session_id), success: true, message: "Session Deleted".to_string()
+    pub async fn add_variation(&self, user_id: i32, request: CreateVariationRequest) -> PostResponse {
+        let new_var = NewVariation {
+            muscle_group_id: request.muscle_group_id,
+            name: &request.name,
+            user_id,
+            description: None, // Or add to request if needed
+        };
+        match self.logger.add_variation(new_var).await {
+            Ok(var) => {
+                info!("Variation added for user_id: {}", user_id);
+                PostResponse {
+                    user_id,
+                    id: Some(var.id),
+                    success: true,
+                    message: "Variation Added".to_string()
+                }
             },
-            Err(err) => PostResponse {
-                user_id, id: None, success: false, message: format!("{}", err)
+            Err(err) => {
+                error!("Error adding variation for user_id {}: {}", user_id, err);
+                PostResponse {
+                    user_id,
+                    id: None,
+                    success: false,
+                    message: format!("{}", err)
+                }
             }
         }
     }
 
-    pub async fn update_workout_set(&self, user_id: i32, set_id: i32, weight: Option<f64>, reps: Option<i32>) -> PostResponse {
-        let update_data = UpdateWorkoutSet { weight, reps };
-        match self.workout.update_workout_set(user_id, set_id, update_data).await {
-            Ok(set) => PostResponse {
-                user_id, id: Some(set.id), success: true, message: "Set Updated".to_string()
+    pub async fn add_cardio_exercise(&self, user_id: i32, request: CreateCardioExerciseRequest) -> PostResponse {
+        let new_ex = NewCardioExercise {
+            name: &request.name,
+            user_id,
+        };
+        match self.logger.add_cardio_exercise(new_ex).await {
+            Ok(ex) => {
+                info!("Cardio exercise added for user_id: {}", user_id);
+                PostResponse {
+                    user_id,
+                    id: Some(ex.id),
+                    success: true,
+                    message: "Cardio Exercise Added".to_string()
+                }
             },
-            Err(err) => PostResponse {
-                user_id, id: None, success: false, message: format!("{}", err)
+            Err(err) => {
+                error!("Error adding cardio exercise for user_id {}: {}", user_id, err);
+                PostResponse {
+                    user_id,
+                    id: None,
+                    success: false,
+                    message: format!("{}", err)
+                }
             }
         }
-    }
-
-    pub async fn delete_workout_set(&self, user_id: i32, set_id: i32) -> PostResponse {
-        match self.workout.delete_workout_set(user_id, set_id).await {
-            Ok(_) => PostResponse {
-                user_id, id: Some(set_id), success: true, message: "Set Deleted".to_string()
-            },
-            Err(err) => PostResponse {
-                user_id, id: None, success: false, message: format!("{}", err)
-            }
-        }
-    }
-
-    pub async fn update_cardio_log(&self, user_id: i32, log_id: i32, duration_minutes: Option<i32>) -> PostResponse {
-        let update_data = UpdateCardioLog { duration_minutes };
-        match self.workout.update_cardio_log(user_id, log_id, update_data).await {
-            Ok(log) => PostResponse {
-                user_id, id: Some(log.id), success: true, message: "Cardio Log Updated".to_string()
-            },
-            Err(err) => PostResponse {
-                user_id, id: None, success: false, message: format!("{}", err)
-            }
-        }
-    }
-
-    pub async fn delete_cardio_log(&self, user_id: i32, log_id: i32) -> PostResponse {
-        match self.workout.delete_cardio_log(user_id, log_id).await {
-            Ok(_) => PostResponse {
-                user_id, id: Some(log_id), success: true, message: "Cardio Log Deleted".to_string()
-            },
-            Err(err) => PostResponse {
-                user_id, id: None, success: false, message: format!("{}", err)
-            }
-        }
-    }
-
-    pub async fn get_history(&self, user_id: i32, limit: i64) -> anyhow::Result<Vec<crate::db::model::WorkoutSession>> {
-        self.workout.get_history(user_id, limit).await
-    }
-
-    pub async fn get_session_details(&self, user_id: i32, session_id: i32) -> anyhow::Result<(crate::db::model::WorkoutSession, Vec<crate::db::model::WorkoutSet>, Vec<crate::db::model::CardioLog>)> {
-        self.workout.get_session_details(user_id, session_id).await
     }
 }
