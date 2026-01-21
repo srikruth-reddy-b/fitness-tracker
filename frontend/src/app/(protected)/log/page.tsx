@@ -79,6 +79,49 @@ export default function LogsPage() {
     const [newItemName, setNewItemName] = useState("");
     const [popupMessage, setPopupMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+
+    const [isNavWarningOpen, setIsNavWarningOpen] = useState(false);
+    const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+
+    // Warn about unsaved changes on browser close/refresh AND internal navigation
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (dailyLogs.length > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        const handleAnchorClick = (e: MouseEvent) => {
+            if (dailyLogs.length > 0) {
+                const target = (e.target as HTMLElement).closest('a');
+                if (target) {
+                    if (target.href && target.href.startsWith(window.location.origin) && !target.getAttribute('download')) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        setPendingUrl(target.href);
+                        setIsNavWarningOpen(true);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('click', handleAnchorClick, true);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('click', handleAnchorClick, true);
+        };
+    }, [dailyLogs]);
+
+    const confirmNavigation = () => {
+        if (pendingUrl) {
+            window.location.href = pendingUrl;
+        }
+        setIsNavWarningOpen(false);
+    };
 
     const availableVariations = selectedMuscleGroupId
         ? variations.filter(v => v.muscle_group_id === Number(selectedMuscleGroupId))
@@ -312,10 +355,10 @@ export default function LogsPage() {
         }
     };
 
-    const handleClearSession = () => {
-        if (!confirm("Clear all unsaved logs?")) return;
+    const confirmClearSession = () => {
         setDailyLogs([]);
         setPopupMessage("Cleared.");
+        setIsClearModalOpen(false);
     };
 
     const currentDayLogs = dailyLogs.filter(log => log.date === date);
@@ -528,7 +571,7 @@ export default function LogsPage() {
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-gray-200 z-50">
                 <div className="max-w-2xl mx-auto flex gap-4">
                     <button
-                        onClick={handleClearSession}
+                        onClick={() => setIsClearModalOpen(true)}
                         className="px-6 py-3 rounded-xl font-bold text-red-600 border border-red-100 bg-red-50 hover:bg-red-100 transition-all text-sm"
                     >
                         Clear Session
@@ -546,6 +589,48 @@ export default function LogsPage() {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New">
                 <input value={newItemName} onChange={e => setNewItemName(e.target.value)} className="w-full p-3 border rounded-xl mb-4" placeholder="Name" autoFocus />
                 <button onClick={submitNewItem} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">Create</button>
+            </Modal>
+
+            {/* Clear Session Confirmation Modal */}
+            <Modal isOpen={isClearModalOpen} onClose={() => setIsClearModalOpen(false)} title="Clear Session?">
+                <div className="space-y-4">
+                    <p className="text-gray-600">Are you sure you want to clear all unsaved logs? This action cannot be undone.</p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setIsClearModalOpen(false)}
+                            className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={confirmClearSession}
+                            className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Navigation Warning Modal */}
+            <Modal isOpen={isNavWarningOpen} onClose={() => setIsNavWarningOpen(false)} title="Unsaved Changes">
+                <div className="space-y-4">
+                    <p className="text-gray-600">You have unsaved changes. Leaving this page will discard them.</p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setIsNavWarningOpen(false)}
+                            className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                        >
+                            Stay
+                        </button>
+                        <button
+                            onClick={confirmNavigation}
+                            className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+                        >
+                            Leave
+                        </button>
+                    </div>
+                </div>
             </Modal>
 
             <Popup message={popupMessage} duration={1000} onClose={() => setPopupMessage("")} />

@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # DATABASE SERVICE (Postgres)
+  # ==========================================
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_USER: user123
+      POSTGRES_PASSWORD: qwerty
+      POSTGRES_DB: fitness
+    ports:
+      - "5432:5432" # Expose so you can access from host (e.g., TablePlus/Diesel CLI)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ==========================================
+  # BACKEND SERVICE (Rust)
+  # ==========================================
+  backend:
+    image: srikruthb/ft-backend:v1
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: on-failure
+    depends_on:
+      - db
+    ports:
+      - "3001:3001" # Host Port : Container Port
+    environment:
+      # Database Connection (Overrides config.toml)
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=user123
+      - DATABASE_PASSWORD=qwerty
+      - DATABASE_NAME=fitness
+      # Server Config
+      - SERVER_PORT=3001
+      - SERVER_IP=0.0.0.0
+      # Migration Config (For Diesel CLI in CMD)
+      - DATABASE_URL=postgres://user123:qwerty@db:5432/fitness
+
+  # ==========================================
+  # FRONTEND SERVICE (Next.js)
+  # ==========================================
+  frontend:
+    image: srikruthb/ft-frontend:v1
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+
+volumes:
+  postgres_data:

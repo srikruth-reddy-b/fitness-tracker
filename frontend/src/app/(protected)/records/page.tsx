@@ -38,6 +38,7 @@ export default function RecordsPage() {
         try {
             const params = new URLSearchParams();
             params.append("limit", "50");
+
             if (startDate) params.append("start_date", startDate);
             if (endDate) params.append("end_date", endDate);
 
@@ -88,6 +89,24 @@ export default function RecordsPage() {
         }
     };
 
+    const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setStartDate(val);
+        if (endDate && val > endDate) {
+            setPopupMessage("Start date cannot be after end date");
+            setEndDate(val); // Immediate correction
+        }
+    };
+
+    const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setEndDate(val);
+        if (startDate && val < startDate) {
+            setPopupMessage("End date cannot be before start date");
+            setStartDate(val); // Immediate correction
+        }
+    };
+
     if (loading) return <div className="p-8 text-center text-gray-500">Loading history...</div>;
     if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
 
@@ -106,14 +125,14 @@ export default function RecordsPage() {
                     <input
                         type="date"
                         value={startDate}
-                        onChange={e => setStartDate(e.target.value)}
+                        onChange={handleStartDateChange}
                         className="border border-gray-200 text-gray-900 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-blue-500"
                     />
                     <span className="text-gray-400">-</span>
                     <input
                         type="date"
                         value={endDate}
-                        onChange={e => setEndDate(e.target.value)}
+                        onChange={handleEndDateChange}
                         className="border border-gray-200 text-gray-900 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-blue-500"
                     />
                     {(startDate || endDate) && (
