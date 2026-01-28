@@ -48,7 +48,7 @@ services:
   # FRONTEND SERVICE (Next.js)
   # ==========================================
   frontend:
-    image: srikruthb/ft-frontend:v1
+    image: srikruthb/ft-frontend:v1.1
     build:
       context: ./frontend
       dockerfile: Dockerfile
